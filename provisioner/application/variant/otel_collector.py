@@ -1,4 +1,5 @@
 from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
+from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisoner import TopologyProperties
@@ -9,8 +10,8 @@ class OTELCollector(AbstractApplication):
     ycsb_version: str
     cluster_application: str
 
-    def __init__(self, version: str):
-        super().__init__(version)
+    def __init__(self, version: str, docker_config: DockerConfig):
+        super().__init__(version, docker_config)
 
     @classmethod
     def variant(cls) -> ApplicationVariant:

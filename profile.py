@@ -1,17 +1,18 @@
 import geni.portal as portal
 import geni.rspec.pg as pg 
-from typing import Tuple
-from provisioner.structure.cluster import CLUSTER_PARAMETERS, Cluster
+from provisioner.docker import DOCKER_PARAMETERS
+from provisioner.structure.cluster import CLUSTER_PARAMETERS
 from provisioner.application.app import APPLICATION_PARAMETERS
 from provisioner.parameters import ParameterGroup
 from provisioner.provisoner import Provisioner
-from provisioner.collector.collector import Collector, COLLECTOR_PARAMETERS
+from provisioner.collector.collector import COLLECTOR_PARAMETERS
 
 DEBUG_OUTPUT: bool = True
 PARAMETER_GROUPS: list[ParameterGroup] = [
     CLUSTER_PARAMETERS,
     APPLICATION_PARAMETERS,
-    COLLECTOR_PARAMETERS
+    COLLECTOR_PARAMETERS,
+    DOCKER_PARAMETERS
 ]
 
 def bindAndValidateParameters() -> portal.Namespace:

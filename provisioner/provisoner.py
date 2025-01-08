@@ -31,10 +31,15 @@ class Provisioner:
 
     request: pg.Request
     params: portal.Namespace
+    docker_config: DockerConfig
 
     def __init__(self, request: pg.Request, params: portal.Namespace):
         self.request = request
         self.params = params
+        self.docker_config: DockerConfig = DockerConfig(
+            username=self.params.github_username,
+            token=self.params.github_token
+        )
 
     def nodeProvision(self) -> Node:
         id = str(uuid.uuid4())
@@ -91,7 +96,10 @@ class Provisioner:
                     topologyProperties: TopologyProperties) -> None:
         print("Bootstrapping cluster")
         app_variant: ApplicationVariant = ApplicationVariant[str(self.params.application).upper()]
-        app: AbstractApplication = APPLICATION_BINDINGS[app_variant](self.params.application_version)
+        app: AbstractApplication = APPLICATION_BINDINGS[app_variant](
+            self.params.application_version,
+            self.docker_config
+        )
         app.preConfigureClusterLevelProperties(
             cluster,
             self.params,
@@ -109,7 +117,10 @@ class Provisioner:
                            collector: Collector,
                            topologyProperties: TopologyProperties) -> None:
         print("Bootstrapping collector")
-        app: OTELCollector = OTELCollector(self.params.collector_version)
+        app: OTELCollector = OTELCollector(
+            self.params.collector_version,
+            self.docker_config
+        )
         app.preConfigureClusterLevelProperties(
             cluster,
             self.params,

@@ -1,4 +1,5 @@
 from provisioner.application.app import AbstractApplication, ApplicationVariant
+from provisioner.docker import DockerConfig
 from provisioner.structure.node import Node
 from provisioner.structure.cluster import Cluster
 from provisioner.provisoner import TopologyProperties
@@ -7,8 +8,8 @@ import geni.portal as portal
 
 class MongoDBApplication(AbstractApplication):
 
-    def __init__(self, version: str):
-        super().__init__(version)
+    def __init__(self, version: str, docker_config: DockerConfig):
+        super().__init__(version, docker_config)
 
     @classmethod
     def variant(cls) -> ApplicationVariant:

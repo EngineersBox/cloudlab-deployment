@@ -3,6 +3,7 @@ import geni.portal as portal
 from typing import Tuple
 from geni.rspec import pg
 from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
+from provisioner.docker import DockerConfig
 from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
@@ -52,8 +53,8 @@ class CassandraApplication(AbstractApplication):
     seeds: dict[str, pg.Interface] = {}
     topology: dict[Node, Tuple[DataCentre, Rack]] = {}
 
-    def __init__(self, version: str):
-        super().__init__(version)
+    def __init__(self, version: str, docker_config: DockerConfig):
+        super().__init__(version, docker_config)
 
     @classmethod
     def variant(cls) -> ApplicationVariant:

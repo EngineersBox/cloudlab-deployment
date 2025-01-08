@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from provisioner.collector.collector import OTELFeature
+from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
@@ -29,12 +30,14 @@ LOCAL_PATH = "/var/lib"
 
 class AbstractApplication(ABC):
     version: str
+    docker_config: DockerConfig
     topologyProperties: TopologyProperties
     collectorFeatures: set[OTELFeature]
 
     @abstractmethod
-    def __init__(self, version: str):
+    def __init__(self, version: str, docker_config: DockerConfig):
         self.version = version
+        self.docker_config = docker_config
 
     @classmethod
     @abstractmethod
@@ -99,6 +102,11 @@ NODE_IP={node.getInterfaceAddress()}
             node,
             properties
         )
+        # Login to docker registry
+        node.instance.addService(pg.Execute(
+            shell="bash",
+            command=f"echo \"{self.docker_config.token}\" | docker login ghcr.io -u {self.docker_config.username} --password-stdin",
+        ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
             shell="bash",
