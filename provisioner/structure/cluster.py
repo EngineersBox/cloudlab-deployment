@@ -53,26 +53,21 @@ class ClusterParameterGroup(ParameterGroup):
                 ),
                 Parameter(
                     name="node_size",
-                    description="Instance to use for the nodes",
-                    typ=portal.ParameterType.STRING,
-                    defaultValue="<TODO>"
+                    description="Instance to use for the nodes (Note: 'raw' implies autoselect)",
+                    typ=portal.ParameterType.NODETYPE,
+                    defaultValue="raw"
                 ),
                 Parameter(
                     name="node_disk_image",
                     description="Node disk image",
-                    typ=portal.ParameterType.STRING,
+                    typ=portal.ParameterType.IMAGE,
                     defaultValue="urn:publicid:IDN+utah.cloudlab.us+image+cassandramulti7-PG0:ubuntu22-docker-java"
                 ),
                 Parameter(
                     name="vlan_type",
-                    description="VLAN to use when connecting nodes",
+                    description="Shared VLAN used between experiments to expose traffic between the experiments",
                     typ=portal.ParameterType.STRING,
-                    defaultValue="mesoscale-openflow",
-                    legalValues=[
-                        # ('mlnx-sn2410', 'Mellanox SN2410'),
-                        # ('dell-s4048',  'Dell S4048'),
-                        ("mesoscale-openflow", "Mesoscale OpenFlow")
-                    ]
+                    defaultValue=None
                 )
             ]
         )

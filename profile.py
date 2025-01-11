@@ -7,7 +7,7 @@ from provisioner.parameters import ParameterGroup
 from provisioner.provisoner import Provisioner
 from provisioner.collector.collector import COLLECTOR_PARAMETERS
 
-DEBUG_OUTPUT: bool = True
+OUTPUT_TO_FILE: bool = True
 PARAMETER_GROUPS: list[ParameterGroup] = [
     CLUSTER_PARAMETERS,
     APPLICATION_PARAMETERS,
@@ -28,8 +28,8 @@ def main() -> None:
     params: portal.Namespace = bindAndValidateParameters()
     request: pg.Request = portal.context.makeRequestRSpec()
     provisioner: Provisioner = Provisioner(request, params)
-    cluster, collector = provisioner.provision()
-    if DEBUG_OUTPUT:
+    provisioner.provision()
+    if OUTPUT_TO_FILE:
         request.writeXML("./test.xml")
     else:
         portal.context.printRequestRSpec()

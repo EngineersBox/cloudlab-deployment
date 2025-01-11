@@ -24,9 +24,6 @@ APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
     ScyllaApplication.variant(): ScyllaApplication
 }
 
-# TODO: How do we get creds like docker registry access tokens
-#       onto nodes without baking them into publicly visible
-#       stuff (i.e. archives or code)?
 class Provisioner:
 
     request: pg.Request
@@ -46,7 +43,7 @@ class Provisioner:
         node_vm = pg.RawPC(id)
         node_vm.disk_image = self.params.node_disk_image
         self.request.addResource(node_vm)
-        iface: pg.Interface = node_vm.addInterface(NetworkManager.nextVirtualInterface())
+        iface: pg.Interface = node_vm.addInterface(NetworkManager.CURRENT_PHYSICAL_INTERFACE)
         # iface.component_id = Provisioner.NODE_PHYSICAL_INTERFACE_FORMAT % i
         net_address: ipaddress.IPv4Address = NetworkManager.nextAddress()
         address: pg.IPv4Address = pg.IPv4Address(
@@ -137,7 +134,6 @@ class Provisioner:
 
     def collectorProvisionHardware(self) -> Collector:
         print("Provisioning collector hardware")
-        
         return Collector(self.nodeProvision())
 
     def bindNodesViaLAN(self,
@@ -158,10 +154,13 @@ class Provisioner:
                 collector.node.interface.addresses[0].address
             )
         )
-        lan.connectSharedVlan(self.params.vlan_type)
+        if (self.params.vlan_type != None):
+            lan.connectSharedVlan(self.params.vlan_type)
         return lan
 
     def provision(self) -> Tuple[Cluster, Collector]:
+        # Pre-allocate interface to share across nodes in LAN
+        NetworkManager.nextPhysicalInterface()
         cluster: Cluster = self.clusterProvisionHardware()
         collector: Collector = self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
