@@ -98,6 +98,10 @@ NODE_IP={node.getInterfaceAddress()}
     def bootstrapNode(self,
                       node: Node,
                       properties: dict[str, str]) -> None:
+        node.instance.addService(pg.Execute(
+            shell="bash",
+            command=f"mkdir -p {LOCAL_PATH}"
+        ))
         self._writeEnvFile(
             node,
             properties
