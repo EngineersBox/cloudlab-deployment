@@ -52,6 +52,7 @@ class CassandraApplication(AbstractApplication):
     # Node Ids to node interfaces
     seeds: dict[str, pg.Interface] = {}
     topology: dict[Node, Tuple[DataCentre, Rack]] = {}
+    has_init = False
 
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
@@ -127,12 +128,16 @@ default={default_dc.name}:{default_rack.name}
             f"https://github.com/EngineersBox/cassandra-benchmarking/releases/{CassandraApplication.variant()}-{self.version}/{CassandraApplication.variant()}.tar.gz"
         )
         all_ips_prop: str = " ".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
+        self.writeRackDcProperties(node)
+        self.writeTopologyProperties(node)
+        invoke_init_script = False
+        if node.id in self.seeds and not self.has_init:
+            invoke_init_script = True
         self.bootstrapNode(
             node,
             {
                 "NODE_ALL_IPS": "({})".format(all_ips_prop),
-                "SEED_NODE": "true" if node in self.seeds else "false"
+                "SEED_NODE": "true" if node in self.seeds else "false",
+                "INVOKE_INIT": "true" if invoke_init_script else "false"
             }
         )
-        self.writeRackDcProperties(node)
-        self.writeTopologyProperties(node)
