@@ -53,6 +53,7 @@ class CassandraApplication(AbstractApplication):
     seeds: dict[str, pg.Interface] = {}
     topology: dict[Node, Tuple[DataCentre, Rack]] = {}
     has_init = False
+    ycsb_rf: int = 0
 
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
@@ -73,6 +74,7 @@ class CassandraApplication(AbstractApplication):
         self.cluster = cluster
         self.determineSeedNodes(cluster, params)
         self.constructTopology(cluster)
+        self.ycsb_rf = params.cassandra_ycsb_rf
 
     def determineSeedNodes(self, cluster: Cluster, params: portal.Namespace) -> None:
         # Spread seeds across DCs to ensure at least 1 per DC.
@@ -123,6 +125,7 @@ default={default_dc.name}:{default_rack.name}
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
+        # This will unpack as /var/lib/cluster
         self.unpackTar(
             node,
             f"https://github.com/EngineersBox/cassandra-benchmarking/releases/{CassandraApplication.variant()}-{self.version}/{CassandraApplication.variant()}.tar.gz"
@@ -138,6 +141,8 @@ default={default_dc.name}:{default_rack.name}
             {
                 "NODE_ALL_IPS": "({})".format(all_ips_prop),
                 "SEED_NODE": "true" if node in self.seeds else "false",
-                "INVOKE_INIT": "true" if invoke_init_script else "false"
+                "INVOKE_INIT": "true" if invoke_init_script else "false",
+                "DC_COUNT": f"{len(self.cluster.datacentres)}",
+                "YCSB_RF": f"{self.ycsb_rf}",
             }
         )

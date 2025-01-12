@@ -26,7 +26,7 @@ class ApplicationVariant(Enum):
             ApplicationVariant._member_map_.values()
         ))
 
-LOCAL_PATH = "/var/lib"
+LOCAL_PATH = "/var/lib/cluster"
 
 class AbstractApplication(ABC):
     version: str
@@ -144,10 +144,26 @@ class ApplicationParameterGroup(ParameterGroup):
                     typ=portal.ParameterType.STRING,
                     required=True
                 ),
+                Parameter(
+                    name="cassandra_ycsb_rf",
+                    description="Replication factor for YCSB keyspace",
+                    typ=portal.ParameterType.INTEGER,
+                    required=False,
+                    defaultValue=0
+                ),
             ]
         )
 
     def validate(self, params: portal.Namespace) -> None:
         super().validate(params)
+        nodes_per_dc = params.racks_per_dc * params.nodes_per_rack
+        if params.cassandra_ycsb_rf == 0:
+            params.cassandra_ycsb_rf = nodes_per_dc
+        elif params.cassandra_ycsb_rf > nodes_per_dc:
+            portal.context.reportError(portal.ParameterError(
+                f"Replication factor {params.cassandra_ycsb_rf} must be less than or equal to number of nodes in dc {nodes_per_dc}",
+                ["cassandra_ycsb_rf"]
+            ))
+
 
 APPLICATION_PARAMETERS: ParameterGroup = ApplicationParameterGroup()
