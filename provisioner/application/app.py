@@ -92,7 +92,7 @@ NODE_IP={node.getInterfaceAddress()}
         # bootstrap script uses as well as docker containers
         node.instance.addService(pg.Execute(
             shell="bash",
-            command=f"echo \"{env_file_content}\" > {LOCAL_PATH}/node_env"
+            command=f"echo \"{env_file_content}\" > {VAR_LIB_PATH}/node_env"
         ))
         # Replace template var for pushing logs
         node.instance.addService(pg.Execute(

@@ -30,6 +30,8 @@ class Provisioner:
     params: portal.Namespace
     docker_config: DockerConfig
 
+    __node_idx = 0
+
     def __init__(self, request: pg.Request, params: portal.Namespace):
         self.request = request
         self.params = params
@@ -39,7 +41,8 @@ class Provisioner:
         )
 
     def nodeProvision(self) -> Node:
-        id = str(uuid.uuid4())
+        id = f"node{self.__node_idx}"
+        self.__node_idx += 1
         node_vm = pg.RawPC(id)
         node_vm.disk_image = self.params.node_disk_image
         self.request.addResource(node_vm)
