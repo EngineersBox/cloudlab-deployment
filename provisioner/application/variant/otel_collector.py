@@ -65,16 +65,10 @@ class OTELCollector(AbstractApplication):
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
-        self.unpackTar(
-            node,
-            f"https://github.com/EngineersBox/cassandra-benchmarking/releases/{OTELCollector.variant()}-{self.version}/{OTELCollector.variant()}.tar.gz"
-        )
+        self.unpackTar(node)
         self.unpackTar(
             node,
             f"https://github.com/brianfrankcooper/YCSB/releases/download/{self.ycsb_version}/ycsb-{self.ycsb_version}.tar.gz"
         )
-        self.bootstrapNode(
-            node,
-            {},
-        )
+        self.bootstrapNode(node, {})
         self.createYCSBBaseProfile(node)

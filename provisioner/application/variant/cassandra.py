@@ -125,13 +125,14 @@ default={default_dc.name}:{default_rack.name}
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
-        tar_name = f"{CassandraApplication.variant()}.tar.gz"
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f" && wget -O https://github.com/EngineersBox/cassandra-benchmarking/releases/{CassandraApplication.variant()}-{self.version}/{tar_name}"
-                + f" && tar -xf {tar_name} -C /var/lib/cluster"
-                + f" && rm {tar_name}"
-        ))
+        # tar_name = f"{CassandraApplication.variant()}.tar.gz"
+        # node.instance.addService(pg.Execute(
+        #     shell="bash",
+        #     command=f" && wget -O https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{CassandraApplication.variant()}-{self.version}/{tar_name}"
+        #         + f" && tar -xf {tar_name} -C /var/lib"
+        #         + f" && rm {tar_name}"
+        # ))
+        self.unpackTar(node)
         all_ips_prop: str = " ".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
         self.writeRackDcProperties(node)
         self.writeTopologyProperties(node)

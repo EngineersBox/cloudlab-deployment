@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Optional
 from provisioner.collector.collector import OTELFeature
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
@@ -26,7 +27,8 @@ class ApplicationVariant(Enum):
             ApplicationVariant._member_map_.values()
         ))
 
-LOCAL_PATH = "/var/lib/cluster"
+VAR_LIB_PATH = "/var/lib"
+LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
 
 class AbstractApplication(ABC):
     version: str
@@ -52,10 +54,13 @@ class AbstractApplication(ABC):
         self.topologyProperties = topologyProperties
         self.collectorFeatures = params.collector_features
 
-    def unpackTar(self, node: Node, url: str) -> None:
+
+    def unpackTar(self, node: Node, url: Optional[str] = None) -> None:
+        if url == None:
+            url=f"https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
         node.instance.addService(pg.Install(
             url=url,
-            path=LOCAL_PATH
+            path=VAR_LIB_PATH
         ))
 
     def _writeEnvFile(self,
