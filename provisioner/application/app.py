@@ -29,6 +29,7 @@ class ApplicationVariant(Enum):
 
 VAR_LIB_PATH = "/var/lib"
 LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
+USERNAME = "cluster"
 
 class AbstractApplication(ABC):
     version: str
@@ -120,6 +121,18 @@ NODE_IP={node.getInterfaceAddress()}
         node.instance.addService(pg.Execute(
             shell="bash",
             command=f"ln -s /{LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && systemctl start bootstrap.service"
+        ))
+
+    def switchToDedicatedUser(self, node: Node) -> None:
+        node.instance.addService(pg.Execute(
+            shell="bash",
+            command=f"sudo su - {USERNAME}"
+        ))
+
+    def restoreExistingUser(self, node: Node) -> None:
+        node.instance.addService(pg.Execute(
+            shell="bash",
+            command="exit"
         ))
 
     @abstractmethod

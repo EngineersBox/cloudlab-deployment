@@ -110,7 +110,13 @@ class Provisioner:
         # addresses of all other nodes
         for node in cluster.nodesGenerator():
             print(f"Installing {self.params.application} on node {node.id}")
-            app.nodeInstallApplication(node) 
+            # NOTE: We are not doing anything sensitive as this user has
+            #       less priviledges than the one we start with. As such
+            #       there is no need to worry about an error leaving us in
+            #       a priviledged state
+            app.switchToDedicatedUser(node)
+            app.nodeInstallApplication(node)
+            app.restoreExistingUser(node)
 
     def bootstrapCollector(self,
                            cluster: Cluster,
@@ -127,7 +133,13 @@ class Provisioner:
             topologyProperties
         )
         print(f"Installing {app.variant()} on node {collector.node.id}")
+        # NOTE: We are not doing anything sensitive as this user has
+        #       less priviledges than the one we start with. As such
+        #       there is no need to worry about an error leaving us in
+        #       a priviledged state
+        app.switchToDedicatedUser(collector.node)
         app.nodeInstallApplication(collector.node)
+        app.restoreExistingUser(collector.node)
     
     def clusterProvisionHardware(self) -> Cluster:
         print("Provisioning cluster hardware")
