@@ -31,6 +31,7 @@ class ApplicationVariant(Enum):
 VAR_LIB_PATH = "/var/lib"
 LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
 USERNAME = "cluster"
+GROUPNAME = "cluster"
 
 def cluster_user_context(func):
     def wrapper(self, *args, **kwargs):
@@ -43,7 +44,7 @@ def cluster_user_context(func):
             raise ValueError("Expected a node instance in arguments")
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo su -u {USERNAME}"
+            command=f"sudo su - {USERNAME}"
         ))
         res = func(self, *args, **kwargs)
         node.instance.addService(pg.Execute(
@@ -151,10 +152,11 @@ NODE_IP={node.getInterfaceAddress()}
     def bootstrapNode(self,
                       node: Node,
                       properties: dict[str, str]) -> None:
-        # Create cluster user and switch to it
+
+        # Create cluster group and  user
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo useradd {USERNAME} -u 1000 -g 1000 -m -G sudo"
+            command=f"sudo groupadd -g 1000 {GROUPNAME} && sudo useradd -u 1000 -g 1000 -m -G sudo,docker {USERNAME}"
         ))
         self._writeEnvFile(
             node,
