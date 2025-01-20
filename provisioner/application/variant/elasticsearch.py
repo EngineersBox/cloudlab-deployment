@@ -2,7 +2,7 @@ from provisioner.application.app import AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
 from provisioner.structure.node import Node
 from provisioner.structure.cluster import Cluster
-from provisioner.provisoner import TopologyProperties
+from provisioner.provisioner import TopologyProperties
 import geni.portal as portal
 
 class ElasticsearchApplication(AbstractApplication):

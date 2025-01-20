@@ -7,6 +7,7 @@ from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
+from provisioner.utils import catToFile
 import geni.portal as portal
 from geni.rspec import pg
 
@@ -29,7 +30,6 @@ class ApplicationVariant(Enum):
 
 VAR_LIB_PATH = "/var/lib"
 LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
-USERNAME = "cluster"
 
 class AbstractApplication(ABC):
     version: str
@@ -56,12 +56,17 @@ class AbstractApplication(ABC):
         self.collectorFeatures = params.collector_features
 
 
-    def unpackTar(self, node: Node, url: Optional[str] = None) -> None:
+    def unpackTar(self,
+                  node: Node,
+                  url: Optional[str] = None,
+                  path: Optional[str] = None) -> None:
         if url == None:
             url=f"https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
+        if path == None:
+            path = VAR_LIB_PATH
         node.instance.addService(pg.Install(
             url=url,
-            path=VAR_LIB_PATH
+            path=path
         ))
 
     def _writeEnvFile(self,
@@ -75,6 +80,7 @@ class AbstractApplication(ABC):
             properties["OTEL_TRACES_EXPORTER"] = "always_on"
         # Bash env file
         env_file_content = f"""# Node configuration properties
+INSTALL_PATH={LOCAL_PATH}
 APPLICATION_VARIANT={self.variant()}
 APPLICATION_VERSION={self.version}
 
@@ -91,48 +97,36 @@ NODE_IP={node.getInterfaceAddress()}
             env_file_content += f"\n{k}={v}"
         # Bash sourcable configuration properties that the
         # bootstrap script uses as well as docker containers
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"echo \"{env_file_content}\" > {VAR_LIB_PATH}/node_env"
+        node.instance.addService(catToFile(
+            f"{LOCAL_PATH}/node_env",
+            env_file_content
         ))
         # Replace template var for pushing logs
         node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"sed -i \"s/@@COLLECTOR_ADDRESS@@/{collector_address}/g\" {LOCAL_PATH}/config/otel/otel-instance.config.yaml"
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@COLLECTOR_ADDRESS@@/{collector_address}/g\" {LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         ))
 
     def bootstrapNode(self,
                       node: Node,
                       properties: dict[str, str]) -> None:
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"mkdir -p {LOCAL_PATH}"
-        ))
         self._writeEnvFile(
             node,
             properties
         )
         # Login to docker registry
         node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"echo \"{self.docker_config.token}\" | docker login ghcr.io -u {self.docker_config.username} --password-stdin",
+            shell="/bin/bash",
+            # NOTE: Yes this is unsafe for wider usage, but given
+            #       it is a read-only token within a private environment
+            #       it's not the worst. I don't think it's worth setting
+            #       up an external credentials provider to manage this.
+            command=f"echo \"{self.docker_config.token}\" | sudo docker login ghcr.io -u {self.docker_config.username} --password-stdin",
         ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"ln -s /{LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && systemctl start bootstrap.service"
-        ))
-
-    def switchToDedicatedUser(self, node: Node) -> None:
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"sudo su - {USERNAME}"
-        ))
-
-    def restoreExistingUser(self, node: Node) -> None:
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command="exit"
+            shell="/bin/bash",
+            command=f"sudo ln -s {LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
         ))
 
     @abstractmethod

@@ -4,7 +4,7 @@ from provisioner.docker import DOCKER_PARAMETERS
 from provisioner.structure.cluster import CLUSTER_PARAMETERS
 from provisioner.application.app import APPLICATION_PARAMETERS
 from provisioner.parameters import ParameterGroup
-from provisioner.provisoner import Provisioner
+from provisioner.provisioner import Provisioner
 from provisioner.collector.collector import COLLECTOR_PARAMETERS
 
 OUTPUT_TO_FILE: bool = True
@@ -30,7 +30,7 @@ def main() -> None:
     provisioner: Provisioner = Provisioner(request, params)
     provisioner.provision()
     if OUTPUT_TO_FILE:
-        request.writeXML("./test.xml")
+        request.writeXML("./profile.xml")
     else:
         portal.context.printRequestRSpec()
 

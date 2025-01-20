@@ -2,7 +2,8 @@ from provisioner.application.app import AbstractApplication, ApplicationVariant,
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
-from provisioner.provisoner import TopologyProperties
+from provisioner.provisioner import TopologyProperties
+from provisioner.utils import catToFile
 import geni.portal as portal
 import geni.rspec.pg as pg
 
@@ -43,10 +44,10 @@ class OTELCollector(AbstractApplication):
             """
         elif app_variant == ApplicationVariant.ELASTICSEARCH:
             # TODO: Complete this
-            profile_content = ""
+            raise NotImplementedError("Elasticsearch YCSB profile not implemented")
         elif app_variant == ApplicationVariant.MONGO_DB:
             # TODO: Complete this
-            profile_content = ""
+            raise NotImplementedError("MongoDB YCSB profile not implemented")
         elif app_variant == ApplicationVariant.SCYLLA:
             profile_content = f"""
             scylla.hosts={",".join(all_ips)}
@@ -54,14 +55,7 @@ class OTELCollector(AbstractApplication):
             """
         else:
             raise RuntimeError(f"Invalid application variant: {self.cluster_application}")
-        command = f"""cat <<-EOF {base_profile_path}
-        {profile_content}
-        EOF
-        """
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=command 
-        ))
+        node.instance.addService(catToFile(base_profile_path, profile_content))
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)

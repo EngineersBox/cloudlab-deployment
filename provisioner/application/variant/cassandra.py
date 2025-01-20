@@ -8,7 +8,8 @@ from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
-from provisioner.provisoner import TopologyProperties
+from provisioner.provisioner import TopologyProperties
+from provisioner.utils import catToFile
 
 # CASSANDRA_YAML_DEFAULT_PROPERTIES: dict[str, Any] = {
 #     "cluster_name": "Cassandra Cluster",
@@ -105,9 +106,9 @@ class CassandraApplication(AbstractApplication):
 dc={dc.name}
 rack={rack.name}
 """
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"echo \"{properties}\" > {LOCAL_PATH}/config/cassandra-rackdc.properties"
+        node.instance.addService(catToFile(
+            f"{LOCAL_PATH}/config/cassandra/cassandra-rackdc.properties",
+            properties
         ))
 
     def writeTopologyProperties(self, node: Node) -> None:
@@ -118,16 +119,16 @@ default={default_dc.name}:{default_rack.name}
 """
         for _node, (dc, rack) in self.topology.items():
             properties += f"\n{_node.getInterfaceAddress()}={dc.name}:{rack.name}"
-        node.instance.addService(pg.Execute(
-            shell="bash",
-            command=f"echo \"{properties}\" > {LOCAL_PATH}/config/cassandra-topology.properties"
+        node.instance.addService(catToFile(
+            f"{LOCAL_PATH}/config/cassandra/cassandra-topology.properties",
+            properties
         ))
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
         # tar_name = f"{CassandraApplication.variant()}.tar.gz"
         # node.instance.addService(pg.Execute(
-        #     shell="bash",
+        #     shell="/bin/bash",
         #     command=f" && wget -O https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{CassandraApplication.variant()}-{self.version}/{tar_name}"
         #         + f" && tar -xf {tar_name} -C /var/lib"
         #         + f" && rm {tar_name}"
