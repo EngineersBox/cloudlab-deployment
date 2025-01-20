@@ -30,6 +30,28 @@ class ApplicationVariant(Enum):
 
 VAR_LIB_PATH = "/var/lib"
 LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
+USERNAME = "cluster"
+
+def cluster_user_context(func):
+    def wrapper(self, *args, **kwargs):
+        print("Before method execution")
+        node: Optional[Node] = None
+        for arg in args:
+            if isinstance(arg, Node):
+                node = arg
+        if node == None:
+            raise ValueError("Expected a node instance in arguments")
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo su -u {USERNAME}"
+        ))
+        res = func(self, *args, **kwargs)
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command="exit"
+        ))
+        return res
+    return wrapper
 
 class AbstractApplication(ABC):
     version: str
@@ -107,13 +129,10 @@ NODE_IP={node.getInterfaceAddress()}
             command=f"sudo sed -i \"s/@@COLLECTOR_ADDRESS@@/{collector_address}/g\" {LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         ))
 
-    def bootstrapNode(self,
-                      node: Node,
-                      properties: dict[str, str]) -> None:
-        self._writeEnvFile(
-            node,
-            properties
-        )
+    @cluster_user_context
+    def _bootstrapInUserContext(self,
+                                 node: Node,
+                                 properties: dict[str, str]) -> None:
         # Login to docker registry
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
@@ -128,6 +147,20 @@ NODE_IP={node.getInterfaceAddress()}
             shell="/bin/bash",
             command=f"sudo ln -s {LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
         ))
+
+    def bootstrapNode(self,
+                      node: Node,
+                      properties: dict[str, str]) -> None:
+        # Create cluster user and switch to it
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo useradd {USERNAME} -u 1000 -g 1000 -m -G sudo"
+        ))
+        self._writeEnvFile(
+            node,
+            properties
+        )
+        self._bootstrapInUserContext(node, properties)
 
     @abstractmethod
     def nodeInstallApplication(self, node: Node) -> None:
