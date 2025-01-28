@@ -130,10 +130,19 @@ NODE_IP={node.getInterfaceAddress()}
             command=f"sudo sed -i \"s/@@COLLECTOR_ADDRESS@@/{collector_address}/g\" {LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         ))
 
-    @cluster_user_context
-    def _bootstrapInUserContext(self,
-                                 node: Node,
-                                 properties: dict[str, str]) -> None:
+    def createClusterUser(self, node: Node) -> None:
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo groupadd -g 1000 {GROUPNAME} && sudo useradd -u 1000 -g 1000 -m -G sudo,docker {USERNAME}"
+        ))
+
+    def bootstrapNode(self,
+                      node: Node,
+                      properties: dict[str, str]) -> None:
+        self._writeEnvFile(
+            node,
+            properties
+        )
         # Login to docker registry
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
@@ -141,7 +150,7 @@ NODE_IP={node.getInterfaceAddress()}
             #       it is a read-only token within a private environment
             #       it's not the worst. I don't think it's worth setting
             #       up an external credentials provider to manage this.
-            command=f"echo \"{self.docker_config.token}\" | sudo docker login ghcr.io -u {self.docker_config.username} --password-stdin",
+            command=f"sudo su {USERNAME} -c 'docker login ghcr.io -u {self.docker_config.username} -p {self.docker_config.token}'",
         ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
@@ -149,24 +158,9 @@ NODE_IP={node.getInterfaceAddress()}
             command=f"sudo ln -s {LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
         ))
 
-    def bootstrapNode(self,
-                      node: Node,
-                      properties: dict[str, str]) -> None:
-
-        # Create cluster group and  user
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo groupadd -g 1000 {GROUPNAME} && sudo useradd -u 1000 -g 1000 -m -G sudo,docker {USERNAME}"
-        ))
-        self._writeEnvFile(
-            node,
-            properties
-        )
-        self._bootstrapInUserContext(node, properties)
-
     @abstractmethod
     def nodeInstallApplication(self, node: Node) -> None:
-        pass
+        self.createClusterUser(node)
 
 class ApplicationParameterGroup(ParameterGroup):
 
@@ -194,6 +188,13 @@ class ApplicationParameterGroup(ParameterGroup):
                     description="Version of the application",
                     typ=portal.ParameterType.STRING,
                     required=True
+                ),
+                Parameter(
+                    name="application_heap_size",
+                    description="Amount of memory to allocate as heap for the application",
+                    typ=portal.ParameterType.STRING,
+                    defaultValue="4G",
+                    required=False
                 ),
                 Parameter(
                     name="cassandra_ycsb_rf",

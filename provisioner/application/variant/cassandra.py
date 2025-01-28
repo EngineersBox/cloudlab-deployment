@@ -1,8 +1,8 @@
 import math
 import geni.portal as portal
-from typing import Tuple
+from typing import Tuple, Optional
 from geni.rspec import pg
-from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
+from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH, USERNAME, GROUPNAME
 from provisioner.docker import DockerConfig
 from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
@@ -55,6 +55,7 @@ class CassandraApplication(AbstractApplication):
     topology: dict[Node, Tuple[DataCentre, Rack]] = {}
     has_init = False
     ycsb_rf: int = 0
+    heap_size: Optional[str] = None
 
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
@@ -76,6 +77,7 @@ class CassandraApplication(AbstractApplication):
         self.determineSeedNodes(cluster, params)
         self.constructTopology(cluster)
         self.ycsb_rf = params.cassandra_ycsb_rf
+        self.heap_size = params.application_heap_size
 
     def determineSeedNodes(self, cluster: Cluster, params: portal.Namespace) -> None:
         # Spread seeds across DCs to ensure at least 1 per DC.
@@ -124,19 +126,40 @@ default={default_dc.name}:{default_rack.name}
             properties
         ))
 
+    def writeCassandraEnvProperties(self, node: Node) -> None:
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@RMI_HOSTNAME@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra-env.sh"
+        ))
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@HEAP_SIZE@@/{self.heap_size}/g\" {LOCAL_PATH}/config/cassandra/cassandra-env.sh"
+        ))
+
+    def createDirectories(self, node: Node) -> None:
+        dirs = ["data", "logs"]
+        for dir in dirs:
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"sudo mkdir -p /var/lib/cluster/{dir}"
+            ))
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"sudo chmod 0777 /var/lib/cluster/{dir}"
+            ))
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"sudo chown {USERNAME}:{GROUPNAME} /var/lib/cluster/{dir}"
+            ))
+
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
-        # tar_name = f"{CassandraApplication.variant()}.tar.gz"
-        # node.instance.addService(pg.Execute(
-        #     shell="/bin/bash",
-        #     command=f" && wget -O https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{CassandraApplication.variant()}-{self.version}/{tar_name}"
-        #         + f" && tar -xf {tar_name} -C /var/lib"
-        #         + f" && rm {tar_name}"
-        # ))
         self.unpackTar(node)
         all_ips_prop: str = " ".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
         self.writeRackDcProperties(node)
         self.writeTopologyProperties(node)
+        self.writeCassandraEnvProperties(node)
+        self.createDirectories(node)
         invoke_init_script = False
         if node.id in self.seeds and not self.has_init:
             invoke_init_script = True
