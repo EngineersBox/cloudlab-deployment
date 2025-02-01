@@ -108,7 +108,7 @@ class Provisioner:
         # Addresses are assigned in previous loop, we need to know
         # them all before installing as each node should know the
         # addresses of all other nodes
-        for node in cluster.nodesGenerator():
+        for node in topologyProperties.db_nodes:
             print(f"Installing {self.params.application} on node {node.id}")
             app.nodeInstallApplication(node)
 
@@ -170,7 +170,7 @@ class Provisioner:
         self.request.addResource(lan)
         topologyProperties: TopologyProperties = TopologyProperties(
             collector.node.interface,
-            [node.interface for node in cluster.nodesGenerator()]
+            [node for node in cluster.nodesGenerator()]
         )
         self.bootstrapDB(cluster, topologyProperties)
         self.bootstrapCollector(cluster, collector, topologyProperties)

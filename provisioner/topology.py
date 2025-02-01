@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 import geni.rspec.pg as pg
 
+from provisioner.structure.node import Node
+
 @dataclass
 class TopologyProperties:
     collectorInterface: pg.Interface
-    nodeInterfaces: list[pg.Interface] = field(default_factory=list)
+    db_nodes: list[Node] = field(default_factory=list)

@@ -100,7 +100,7 @@ class AbstractApplication(ABC):
         for feat in self.collectorFeatures:
             properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
         if OTELFeature.TRACES in self.collectorFeatures:
-            properties["OTEL_TRACES_EXPORTER"] = "always_on"
+            properties["OTEL_TRACES_SAMPLER"] = "always_on"
         # Bash env file
         env_file_content = f"""# Node configuration properties
 INSTALL_PATH={LOCAL_PATH}
@@ -111,7 +111,7 @@ EBPF_NET_INTAKE_HOST={collector_address}
 EBPF_NET_INTAKE_PORT=8000
 
 OTEL_EXPORTER_OTLP_ENDPOINT=http://{collector_address}:4318
-OTEL_SERVICE_NAME={node.id}
+OTEL_SERVICE_NAME={self.variant()}-{node.id}
 OTEL_RESOURCE_ATTRIBUTES=application={self.variant()}
 
 NODE_IP={node.getInterfaceAddress()}
