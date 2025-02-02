@@ -82,15 +82,22 @@ class AbstractApplication(ABC):
     def unpackTar(self,
                   node: Node,
                   url: Optional[str] = None,
-                  path: Optional[str] = None) -> None:
+                  path: Optional[str] = None,
+                  use_pg_install: bool = True) -> None:
         if url == None:
             url=f"https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
         if path == None:
             path = VAR_LIB_PATH
-        node.instance.addService(pg.Install(
-            url=url,
-            path=path
-        ))
+        if (use_pg_install):
+            node.instance.addService(pg.Install(
+                url=url,
+                path=path
+            ))
+        else:
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"sudo wget {url} && sudo tar -xzf {self.variant()}.tar.gz -C /var/lib/. && sudo rm {self.variant()}.tar.gz"
+            ))
 
     def _writeEnvFile(self,
                       node: Node,

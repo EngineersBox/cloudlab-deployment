@@ -3,7 +3,7 @@ from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile
+from provisioner.utils import catToFile, chmod
 import geni.portal as portal
 import geni.rspec.pg as pg
 
@@ -77,7 +77,9 @@ otel.exporter.otlp.protocol=http/protobuf
             container_path = f"{OTEL_CONTAINER_LOCAL_PATH}/jmx_configs/jmx_{cluster_node.id}.properties"
             jmx_services += f"\n[\"{cluster_node.id}\"]=\"{container_path}\""
             node.instance.addService(catToFile(instance_path, jmx_config))
+            node.instance.addService(chmod(instance_path, 0o777))
         node.instance.addService(catToFile(f"{LOCAL_PATH}/config/otel/jmx_services", jmx_services))
+        node.instance.addService(chmod(f"{LOCAL_PATH}/config/otel/jmx_services", 0o777))
 
     def writeTargetAppCollectionConfigs(self, node: Node) -> None:
         app_variant: ApplicationVariant = ApplicationVariant(ApplicationVariant._member_map_[str(self.cluster_application).upper()])

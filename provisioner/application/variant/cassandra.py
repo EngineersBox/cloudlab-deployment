@@ -9,7 +9,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile
+from provisioner.utils import catToFile, ifaceForIp
 
 # CASSANDRA_YAML_DEFAULT_PROPERTIES: dict[str, Any] = {
 #     "cluster_name": "Cassandra Cluster",
@@ -136,6 +136,31 @@ default={default_dc.name}:{default_rack.name}
             command=f"sudo sed -i \"s/@@HEAP_SIZE@@/{self.heap_size}/g\" {LOCAL_PATH}/config/cassandra/cassandra-env.sh"
         ))
 
+    def writeCassandraYamlProperties(self, node: Node) -> None:
+        formatted_seeds = []
+        for seed in self.seeds.values():
+            seed_address = seed.addresses[0].address
+            formatted_seeds.append(f"{seed_address}:7000")
+        csv_seeds = ",".join(formatted_seeds)
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@SEED_IPS@@/{csv_seeds}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
+        ))
+        net_iface = ifaceForIp(node.getInterfaceAddress())
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@NODE_IFACE@@/$({net_iface})/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
+        ))
+        # FIXME: the docker-entrypoint.sh script that is run when the Cassandra container starts
+        #        will try to replace all the ip fields (seeds, listen_address, etc) with the first
+        #        non-localhost IP it can find (which will always be wrong for us). It won't do this
+        #        if the env vars corresponding to those fields are set. Either set those or just
+        #        publish a new image that doesn't do this stuff on startup.
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo sed -i \"s/@@NODE_ADDRESS@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
+        ))
+
     def createDirectories(self, node: Node) -> None:
         dirs = ["data", "logs"]
         for dir in dirs:
@@ -159,6 +184,7 @@ default={default_dc.name}:{default_rack.name}
         self.writeRackDcProperties(node)
         self.writeTopologyProperties(node)
         self.writeCassandraEnvProperties(node)
+        self.writeCassandraYamlProperties(node)
         self.createDirectories(node)
         invoke_init_script = False
         if node.id in self.seeds and not self.has_init:
