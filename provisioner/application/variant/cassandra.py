@@ -151,15 +151,10 @@ default={default_dc.name}:{default_rack.name}
             shell="/bin/bash",
             command=f"sudo sed -i \"s/@@NODE_IFACE@@/$({net_iface})/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
         ))
-        # FIXME: the docker-entrypoint.sh script that is run when the Cassandra container starts
-        #        will try to replace all the ip fields (seeds, listen_address, etc) with the first
-        #        non-localhost IP it can find (which will always be wrong for us). It won't do this
-        #        if the env vars corresponding to those fields are set. Either set those or just
-        #        publish a new image that doesn't do this stuff on startup.
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@NODE_ADDRESS@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
-        ))
+        # node.instance.addService(pg.Execute(
+        #     shell="/bin/bash",
+        #     command=f"sudo sed -i \"s/@@NODE_ADDRESS@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
+        # ))
 
     def createDirectories(self, node: Node) -> None:
         dirs = ["data", "logs"]
@@ -197,5 +192,15 @@ default={default_dc.name}:{default_rack.name}
                 "INVOKE_INIT": "true" if invoke_init_script else "false",
                 "DC_COUNT": f"{len(self.cluster.datacentres)}",
                 "YCSB_RF": f"{self.ycsb_rf}",
+                # FIXME: the docker-entrypoint.sh script that is run when the Cassandra container starts
+                #        will try to replace all the ip fields (seeds, listen_address, etc) with the first
+                #        non-localhost IP it can find (which will always be wrong for us). It won't do this
+                #        if the env vars corresponding to those fields are set. Either set those or just
+                #        publish a new image that doesn't do this stuff on startup.
+                "CASSANDRA_RPC_ADDRESS": f"{node.getInterfaceAddress()}",
+                "CASSANDRA_LISTEN_ADDRESS": f"{node.getInterfaceAddress()}",
+                "CASSANDRA_BROADCAST_ADDRESS": f"{node.getInterfaceAddress()}",
+                "CASSANDRA_BROADCAST_RPC_ADDRESS": f"{node.getInterfaceAddress()}",
+                "CASSANDRA_SEEDS": ",".join([f"{seed.addresses[0].address}:7000" for seed in self.seeds.values()])
             }
         )

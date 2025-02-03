@@ -61,7 +61,14 @@ class OTELCollector(AbstractApplication):
         node.instance.addService(catToFile(base_profile_path, profile_content))
 
     def writeCassandraJMXCollectionConfig(self, node: Node) -> None:
-        jmx_services = "#!/usr/bin/env bash\ndeclare -A JMX_SERVICES"
+        jmx_services = """#!/usr/bin/env bash
+JMX_PORT=7199
+
+declare -A JMX_NAMES
+declare -A JMX_PATHS
+declare -A JMX_IPS
+"""
+        i = 0
         for cluster_node in self.topologyProperties.db_nodes:
             node_addr = cluster_node.getInterfaceAddress()
             jmx_config = f"""# OTEL JMX Collection Config
@@ -75,9 +82,14 @@ otel.exporter.otlp.protocol=http/protobuf
 """
             instance_path = f"{LOCAL_PATH}/config/otel/jmx_configs/jmx_{cluster_node.id}.properties"
             container_path = f"{OTEL_CONTAINER_LOCAL_PATH}/jmx_configs/jmx_{cluster_node.id}.properties"
-            jmx_services += f"\n[\"{cluster_node.id}\"]=\"{container_path}\""
+
+            jmx_services += f"\nJMX_NAMES[{i}]=\"{cluster_node.id}\""
+            jmx_services += f"\nJMX_PATHS[{i}]=\"{container_path}\""
+            jmx_services += f"\nJMX_IPS[{i}]=\"{node_addr}\""
+            
             node.instance.addService(catToFile(instance_path, jmx_config))
             node.instance.addService(chmod(instance_path, 0o777))
+            i += 1
         node.instance.addService(catToFile(f"{LOCAL_PATH}/config/otel/jmx_services", jmx_services))
         node.instance.addService(chmod(f"{LOCAL_PATH}/config/otel/jmx_services", 0o777))
 
@@ -107,5 +119,11 @@ otel.exporter.otlp.protocol=http/protobuf
             f"https://github.com/brianfrankcooper/YCSB/releases/download/{self.ycsb_version}/ycsb-{self.ycsb_version}.tar.gz"
         )
         self.writeTargetAppCollectionConfigs(node)
-        self.bootstrapNode(node, {})
+        node_ips = []
+        for cluster_node in self.topologyProperties.db_nodes:
+            node_ips.append(cluster_node.getInterfaceAddress())
+        self.bootstrapNode(node, {
+            "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
+            "CASSANDRA_NODE_IPS": "'" + ",".join(node_ips) + "'"
+        })
         self.createYCSBBaseProfile(node)
