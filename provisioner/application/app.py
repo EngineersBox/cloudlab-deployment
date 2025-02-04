@@ -7,7 +7,7 @@ from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile
+from provisioner.utils import catToFile, sedReplaceMappings
 import geni.portal as portal
 from geni.rspec import pg
 
@@ -33,26 +33,12 @@ LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
 USERNAME = "cluster"
 GROUPNAME = "cluster"
 
-def cluster_user_context(func):
-    def wrapper(self, *args, **kwargs):
-        print("Before method execution")
-        node: Optional[Node] = None
-        for arg in args:
-            if isinstance(arg, Node):
-                node = arg
-        if node == None:
-            raise ValueError("Expected a node instance in arguments")
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo su - {USERNAME}"
-        ))
-        res = func(self, *args, **kwargs)
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command="exit"
-        ))
-        return res
-    return wrapper
+class ServiceStartTiming(Enum):
+    BEFORE_INIT = "\"BEFORE_INIT\""
+    AFTER_INIT = "\"AFTER_INIT\""
+
+    def toBashLiteral(self) -> str:
+        return self.value
 
 class AbstractApplication(ABC):
     version: str
@@ -113,29 +99,35 @@ class AbstractApplication(ABC):
 INSTALL_PATH={LOCAL_PATH}
 APPLICATION_VARIANT={self.variant()}
 APPLICATION_VERSION={self.version}
+NODE_IP={node.getInterfaceAddress()}
 
 EBPF_NET_INTAKE_HOST={collector_address}
 EBPF_NET_INTAKE_PORT=8000
-
+"""
+        if (self.variant() != ApplicationVariant.OTEL_COLLECTOR):
+            env_file_content += f"""
 OTEL_EXPORTER_OTLP_ENDPOINT=http://{collector_address}:4318
 OTEL_SERVICE_NAME={self.variant()}-{node.id}
-OTEL_RESOURCE_ATTRIBUTES=application={self.variant()}
-
-NODE_IP={node.getInterfaceAddress()}
+OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
 """
+
         for (k,v) in properties.items():
             env_file_content += f"\n{k}={v}"
         # Bash sourcable configuration properties that the
         # bootstrap script uses as well as docker containers
-        node.instance.addService(catToFile(
+        catToFile(
+            node,
             f"{LOCAL_PATH}/node_env",
             env_file_content
-        ))
+        )
         # Replace template var for pushing logs
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@COLLECTOR_ADDRESS@@/{collector_address}/g\" {LOCAL_PATH}/config/otel/otel-instance-config.yaml"
-        ))
+        sedReplaceMappings(
+            node,
+            {
+                "@@COLLECTOR_ADDRESS@@": collector_address
+            },
+            f"{LOCAL_PATH}/config/otel/otel-instance-config.yaml"
+        )
 
     def createClusterUser(self, node: Node) -> None:
         node.instance.addService(pg.Execute(
@@ -145,7 +137,9 @@ NODE_IP={node.getInterfaceAddress()}
 
     def bootstrapNode(self,
                       node: Node,
-                      properties: dict[str, str]) -> None:
+                      properties: dict[str, str],
+                      service_start_timing: ServiceStartTiming = ServiceStartTiming.BEFORE_INIT) -> None:
+        properties["SERVICE_START_TIMING"] = service_start_timing.toBashLiteral()
         self._writeEnvFile(
             node,
             properties

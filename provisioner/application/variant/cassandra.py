@@ -9,7 +9,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile, ifaceForIp
+from provisioner.utils import catToFile, chmod, ifaceForIp, sedReplaceMappings
 
 # CASSANDRA_YAML_DEFAULT_PROPERTIES: dict[str, Any] = {
 #     "cluster_name": "Cassandra Cluster",
@@ -108,10 +108,11 @@ class CassandraApplication(AbstractApplication):
 dc={dc.name}
 rack={rack.name}
 """
-        node.instance.addService(catToFile(
+        catToFile(
+            node,
             f"{LOCAL_PATH}/config/cassandra/cassandra-rackdc.properties",
             properties
-        ))
+        )
 
     def writeTopologyProperties(self, node: Node) -> None:
         default_dc, default_rack = list(self.topology.values())[0]
@@ -121,20 +122,21 @@ default={default_dc.name}:{default_rack.name}
 """
         for _node, (dc, rack) in self.topology.items():
             properties += f"\n{_node.getInterfaceAddress()}={dc.name}:{rack.name}"
-        node.instance.addService(catToFile(
+        catToFile(
+            node,
             f"{LOCAL_PATH}/config/cassandra/cassandra-topology.properties",
             properties
-        ))
+        )
 
     def writeCassandraEnvProperties(self, node: Node) -> None:
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@RMI_HOSTNAME@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra-env.sh"
-        ))
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@HEAP_SIZE@@/{self.heap_size}/g\" {LOCAL_PATH}/config/cassandra/cassandra-env.sh"
-        ))
+        sedReplaceMappings(
+            node,
+            {
+                "@@RMI_HOSTNAME@@": node.getInterfaceAddress(),
+                "@@HEAP_SIZE@@": f"{self.heap_size}"
+            },
+            f"{LOCAL_PATH}/config/cassandra/cassandra-env.sh"
+        )
 
     def writeCassandraYamlProperties(self, node: Node) -> None:
         formatted_seeds = []
@@ -142,19 +144,26 @@ default={default_dc.name}:{default_rack.name}
             seed_address = seed.addresses[0].address
             formatted_seeds.append(f"{seed_address}:7000")
         csv_seeds = ",".join(formatted_seeds)
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@SEED_IPS@@/{csv_seeds}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
-        ))
-        net_iface = ifaceForIp(node.getInterfaceAddress())
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"sudo sed -i \"s/@@NODE_IFACE@@/$({net_iface})/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
-        ))
-        # node.instance.addService(pg.Execute(
-        #     shell="/bin/bash",
-        #     command=f"sudo sed -i \"s/@@NODE_ADDRESS@@/{node.getInterfaceAddress()}/g\" {LOCAL_PATH}/config/cassandra/cassandra.yaml"
-        # ))
+        sedReplaceMappings(
+            node,
+            {
+                "@@SEED_IPS@@": csv_seeds,
+                "@@NODE_IFACE@@": f"$({ifaceForIp(node.getInterfaceAddress())})",
+                "@@NODE_ADDRESS@@": node.getInterfaceAddress()
+            },
+            f"{LOCAL_PATH}/config/cassandra/cassandra.yaml"
+        )
+
+    def writeCassandraOTELProperties(self, node: Node) -> None:
+        mappings: dict[str, str] = {
+            "OTEL_SERVICE_NAME": f"{self.variant()}-{node.id}",
+            "NODE_ID": node.id
+        }
+        for key, value in mappings.items():
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"sudo sed -i \"s/@@{key}@@/{value}/g\" {LOCAL_PATH}/config/cassandra/otel.properties"
+            ))
 
     def createDirectories(self, node: Node) -> None:
         dirs = ["data", "logs"]
@@ -163,10 +172,7 @@ default={default_dc.name}:{default_rack.name}
                 shell="/bin/bash",
                 command=f"sudo mkdir -p /var/lib/cluster/{dir}"
             ))
-            node.instance.addService(pg.Execute(
-                shell="/bin/bash",
-                command=f"sudo chmod 0777 /var/lib/cluster/{dir}"
-            ))
+            chmod(node, f"/var/lib/cluster/{dir}", 0o777)
             node.instance.addService(pg.Execute(
                 shell="/bin/bash",
                 command=f"sudo chown {USERNAME}:{GROUPNAME} /var/lib/cluster/{dir}"
@@ -180,6 +186,7 @@ default={default_dc.name}:{default_rack.name}
         self.writeTopologyProperties(node)
         self.writeCassandraEnvProperties(node)
         self.writeCassandraYamlProperties(node)
+        self.writeCassandraOTELProperties(node)
         self.createDirectories(node)
         invoke_init_script = False
         if node.id in self.seeds and not self.has_init:

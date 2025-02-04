@@ -1,4 +1,4 @@
-from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
+from provisioner.application.app import AbstractApplication, ApplicationVariant, ServiceStartTiming, LOCAL_PATH
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
@@ -58,7 +58,7 @@ class OTELCollector(AbstractApplication):
             """
         else:
             raise RuntimeError(f"Invalid application variant: {self.cluster_application}")
-        node.instance.addService(catToFile(base_profile_path, profile_content))
+        catToFile(node, base_profile_path, profile_content)
 
     def writeCassandraJMXCollectionConfig(self, node: Node) -> None:
         jmx_services = """#!/usr/bin/env bash
@@ -79,6 +79,8 @@ otel.jmx.service.url=service:jmx:rmi://{node_addr}/jndi/rmi://{node_addr}:7199/j
 otel.jmx.remote.registry.ssl=false
 otel.jmx.interval.milliseconds={OTEL_JMX_COLLECTION_INTERVAL_MS}
 otel.exporter.otlp.protocol=http/protobuf
+otel.service.name={ApplicationVariant.CASSANDRA}-{cluster_node.id}
+otel.resource.attributes=application={ApplicationVariant.CASSANDRA},node={cluster_node.id}
 """
             instance_path = f"{LOCAL_PATH}/config/otel/jmx_configs/jmx_{cluster_node.id}.properties"
             container_path = f"{OTEL_CONTAINER_LOCAL_PATH}/jmx_configs/jmx_{cluster_node.id}.properties"
@@ -87,11 +89,11 @@ otel.exporter.otlp.protocol=http/protobuf
             jmx_services += f"\nJMX_PATHS[{i}]=\"{container_path}\""
             jmx_services += f"\nJMX_IPS[{i}]=\"{node_addr}\""
             
-            node.instance.addService(catToFile(instance_path, jmx_config))
-            node.instance.addService(chmod(instance_path, 0o777))
+            catToFile(node, instance_path, jmx_config)
+            chmod(node, instance_path, 0o777)
             i += 1
-        node.instance.addService(catToFile(f"{LOCAL_PATH}/config/otel/jmx_services", jmx_services))
-        node.instance.addService(chmod(f"{LOCAL_PATH}/config/otel/jmx_services", 0o777))
+        catToFile(node, f"{LOCAL_PATH}/config/otel/jmx_services", jmx_services)
+        chmod(node, f"{LOCAL_PATH}/config/otel/jmx_services", 0o777)
 
     def writeTargetAppCollectionConfigs(self, node: Node) -> None:
         app_variant: ApplicationVariant = ApplicationVariant(ApplicationVariant._member_map_[str(self.cluster_application).upper()])
@@ -122,8 +124,13 @@ otel.exporter.otlp.protocol=http/protobuf
         node_ips = []
         for cluster_node in self.topologyProperties.db_nodes:
             node_ips.append(cluster_node.getInterfaceAddress())
-        self.bootstrapNode(node, {
-            "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
-            "CASSANDRA_NODE_IPS": "'" + ",".join(node_ips) + "'"
-        })
+        self.bootstrapNode(
+            node,
+            {
+                "INVOKE_INIT": "true",
+                "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
+                "CASSANDRA_NODE_IPS": "'" + ",".join(node_ips) + "'"
+            },
+            ServiceStartTiming.AFTER_INIT
+        )
         self.createYCSBBaseProfile(node)
