@@ -209,6 +209,27 @@ class ApplicationParameterGroup(ParameterGroup):
                     required=False,
                     defaultValue=0
                 ),
+                Parameter(
+                    name="hbase_client_max_total_tasks",
+                    description="Maximum number of concurrent mutation tasks a single HTable instance will send to the cluster",
+                    typ=portal.ParameterType.INTEGER,
+                    required=False,
+                    defaultValue=100,
+                ),
+                Parameter(
+                    name="hbase_client_max_perserver_tasks",
+                    description="Maximum number of concurrent mutation tasks a single HTable instance wil send to a single region server",
+                    typ=portal.ParameterType.INTEGER,
+                    required=False,
+                    defaultValue=2,
+                ),
+                Parameter(
+                    name="hbase_client_max_perregion_tasks",
+                    description="Maximum number of concurrent mutation tasks that the client will maintain to a single region. if there is already this many writes in progress for this region, new puts won't be sent to this region until some writes finish",
+                    typ=portal.ParameterType.INTEGER,
+                    required=False,
+                    defaultValue=1,
+                ),
             ]
         )
 
