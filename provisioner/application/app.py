@@ -16,6 +16,7 @@ class ApplicationVariant(Enum):
     MONGO_DB = "mongodb", True
     SCYLLA = "scylla", True
     ELASTICSEARCH = "elasticsearch", True,
+    HBASE = "hbase", True,
     OTEL_COLLECTOR = "otel_collector", False
 
     def __str__(self) -> str:
@@ -43,8 +44,8 @@ class ServiceStartTiming(Enum):
 class AbstractApplication(ABC):
     version: str
     docker_config: DockerConfig
-    topologyProperties: TopologyProperties
-    collectorFeatures: set[OTELFeature]
+    topology_properties: TopologyProperties
+    collector_features: set[OTELFeature]
 
     @abstractmethod
     def __init__(self, version: str, docker_config: DockerConfig):
@@ -60,9 +61,9 @@ class AbstractApplication(ABC):
     def preConfigureClusterLevelProperties(self,
                                            cluster: Cluster,
                                            params: portal.Namespace,
-                                           topologyProperties: TopologyProperties) -> None:
-        self.topologyProperties = topologyProperties
-        self.collectorFeatures = params.collector_features
+                                           topology_properties: TopologyProperties) -> None:
+        self.topology_properties = topology_properties
+        self.collector_features = params.collector_features
 
 
     def unpackTar(self,
@@ -88,11 +89,11 @@ class AbstractApplication(ABC):
     def _writeEnvFile(self,
                       node: Node,
                       properties: dict[str, str]) -> None:
-        collector_address: str = self.topologyProperties.collectorInterface.addresses[0].address
+        collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
         # Ensure the collector exports data for enabled features
-        for feat in self.collectorFeatures:
+        for feat in self.collector_features:
             properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
-        if OTELFeature.TRACES in self.collectorFeatures:
+        if OTELFeature.TRACES in self.collector_features:
             properties["OTEL_TRACES_SAMPLER"] = "always_on"
         # Bash env file
         env_file_content = f"""# Node configuration properties
@@ -162,6 +163,10 @@ OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
     @abstractmethod
     def nodeInstallApplication(self, node: Node) -> None:
         self.createClusterUser(node)
+
+    @abstractmethod
+    def writeJMXCollectionConfig(self, node: Node) -> None:
+        pass
 
 class ApplicationParameterGroup(ParameterGroup):
 

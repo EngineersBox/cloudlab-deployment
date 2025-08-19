@@ -67,11 +67,11 @@ class CassandraApplication(AbstractApplication):
     def preConfigureClusterLevelProperties(self,
                                            cluster: Cluster,
                                            params: portal.Namespace,
-                                           topologyProperties: TopologyProperties) -> None:
+                                           topology_properties: TopologyProperties) -> None:
         super().preConfigureClusterLevelProperties(
             cluster,
             params,
-            topologyProperties
+            topology_properties
         )
         self.cluster = cluster
         self.determineSeedNodes(cluster, params)

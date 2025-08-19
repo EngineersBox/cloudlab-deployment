@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-import itertools, re
-from typing import Optional, Tuple
+import re
 from geni import portal
 from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.node import Node

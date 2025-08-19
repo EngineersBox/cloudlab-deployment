@@ -1,18 +1,24 @@
+import geni.portal as portal
+from typing import Tuple
+from geni.rspec import pg
 from provisioner.application.app import AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
-from provisioner.structure.node import Node
 from provisioner.structure.cluster import Cluster
-from provisioner.provisioner import TopologyProperties
-import geni.portal as portal
+from provisioner.structure.datacentre import DataCentre
+from provisioner.structure.node import Node
+from provisioner.structure.rack import Rack
+from provisioner.topology import TopologyProperties
 
-class ScyllaApplication(AbstractApplication):
-
+class HBaseApplication(AbstractApplication):
+    all_ips: list[pg.Interface] = []
+    topology: dict[Node, Tuple[DataCentre, Rack]]
+    
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
 
     @classmethod
     def variant(cls) -> ApplicationVariant:
-        return ApplicationVariant.SCYLLA
+        return ApplicationVariant.HBASE
 
     def preConfigureClusterLevelProperties(self,
                                            cluster: Cluster,
@@ -23,8 +29,8 @@ class ScyllaApplication(AbstractApplication):
             params,
             topology_properties
         )
-        # TODO: Implement this
+        self.cluster = cluster
 
     def nodeInstallApplication(self, node: Node) -> None:
+        super().nodeInstallApplication(node)
         # TODO: Implement this
-        pass

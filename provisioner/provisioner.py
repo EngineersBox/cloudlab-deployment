@@ -2,6 +2,7 @@ from typing import Iterator, Tuple
 import geni.portal as portal
 import geni.rspec.pg as pg
 import uuid, ipaddress
+from provisioner.application.variant.hbase import HBaseApplication
 from provisioner.net.network import NetworkManager
 from provisioner.application.app import *
 from provisioner.structure.node import Node
@@ -21,7 +22,8 @@ APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
     CassandraApplication.variant(): CassandraApplication,
     MongoDBApplication.variant(): MongoDBApplication,
     ElasticsearchApplication.variant(): ElasticsearchApplication,
-    ScyllaApplication.variant(): ScyllaApplication
+    ScyllaApplication.variant(): ScyllaApplication,
+    HBaseApplication.variant(): HBaseApplication,
 }
 
 class Provisioner:
@@ -93,7 +95,7 @@ class Provisioner:
 
     def bootstrapDB(self,
                     cluster: Cluster,
-                    topologyProperties: TopologyProperties) -> None:
+                    topology_properties: TopologyProperties) -> None:
         print("Bootstrapping cluster")
         app_variant: ApplicationVariant = ApplicationVariant[str(self.params.application).upper()]
         app: AbstractApplication = APPLICATION_BINDINGS[app_variant](
@@ -103,19 +105,19 @@ class Provisioner:
         app.preConfigureClusterLevelProperties(
             cluster,
             self.params,
-            topologyProperties
+            topology_properties
         )
         # Addresses are assigned in previous loop, we need to know
         # them all before installing as each node should know the
         # addresses of all other nodes
-        for node in topologyProperties.db_nodes:
+        for node in topology_properties.db_nodes:
             print(f"Installing {self.params.application} on node {node.id}")
             app.nodeInstallApplication(node)
 
     def bootstrapCollector(self,
                            cluster: Cluster,
                            collector: Collector,
-                           topologyProperties: TopologyProperties) -> None:
+                           topology_properties: TopologyProperties) -> None:
         print("Bootstrapping collector")
         app: OTELCollector = OTELCollector(
             self.params.collector_version,
@@ -124,7 +126,7 @@ class Provisioner:
         app.preConfigureClusterLevelProperties(
             cluster,
             self.params,
-            topologyProperties
+            topology_properties
         )
         print(f"Installing {app.variant()} on node {collector.node.id}")
         app.nodeInstallApplication(collector.node)
@@ -168,10 +170,10 @@ class Provisioner:
         collector: Collector = self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
         self.request.addResource(lan)
-        topologyProperties: TopologyProperties = TopologyProperties(
+        topology_properties: TopologyProperties = TopologyProperties(
             collector.node.interface,
             [node for node in cluster.nodesGenerator()]
         )
-        self.bootstrapDB(cluster, topologyProperties)
-        self.bootstrapCollector(cluster, collector, topologyProperties)
+        self.bootstrapDB(cluster, topology_properties)
+        self.bootstrapCollector(cluster, collector, topology_properties)
         return cluster, collector

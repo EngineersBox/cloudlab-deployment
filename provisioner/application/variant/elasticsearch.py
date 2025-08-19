@@ -17,11 +17,11 @@ class ElasticsearchApplication(AbstractApplication):
     def preConfigureClusterLevelProperties(self,
                                            cluster: Cluster,
                                            params: portal.Namespace,
-                                           topologyProperties: TopologyProperties) -> None:
+                                           topology_properties: TopologyProperties) -> None:
         super().preConfigureClusterLevelProperties(
             cluster,
             params,
-            topologyProperties
+            topology_properties
         )
         # TODO: Implement this
 
