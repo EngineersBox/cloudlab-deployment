@@ -9,7 +9,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile, chmod, ifaceForIp, sedReplaceMappings
+from provisioner.utils import catToFile, chmod, chown, mkdir, ifaceForIp, sedReplaceMappings
 
 # CASSANDRA_YAML_DEFAULT_PROPERTIES: dict[str, Any] = {
 #     "cluster_name": "Cassandra Cluster",
@@ -155,28 +155,21 @@ default={default_dc.name}:{default_rack.name}
         )
 
     def writeCassandraOTELProperties(self, node: Node) -> None:
-        mappings: dict[str, str] = {
-            "OTEL_SERVICE_NAME": f"{self.variant()}-{node.id}",
-            "NODE_ID": node.id
-        }
-        for key, value in mappings.items():
-            node.instance.addService(pg.Execute(
-                shell="/bin/bash",
-                command=f"sudo sed -i \"s/@@{key}@@/{value}/g\" {LOCAL_PATH}/config/cassandra/otel.properties"
-            ))
+        sedReplaceMappings(
+            node,
+            {
+                "OTEL_SERVICE_NAME": f"{self.variant()}-{node.id}",
+                "NODE_ID": node.id
+            },
+            f"{LOCAL_PATH}/config/cassandra/otel.properties"
+        )
 
     def createDirectories(self, node: Node) -> None:
         dirs = ["data", "logs"]
         for dir in dirs:
-            node.instance.addService(pg.Execute(
-                shell="/bin/bash",
-                command=f"sudo mkdir -p /var/lib/cluster/{dir}"
-            ))
+            mkdir(node, f"/var/lib/cluster/{dir}", True)
             chmod(node, f"/var/lib/cluster/{dir}", 0o777)
-            node.instance.addService(pg.Execute(
-                shell="/bin/bash",
-                command=f"sudo chown {USERNAME}:{GROUPNAME} /var/lib/cluster/{dir}"
-            ))
+            chown(node, f"/var/lib/cluster/{dir}", USERNAME, GROUPNAME)
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
