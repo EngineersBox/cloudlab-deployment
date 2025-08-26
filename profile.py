@@ -6,11 +6,18 @@ from provisioner.application.app import APPLICATION_PARAMETERS
 from provisioner.parameters import ParameterGroup
 from provisioner.provisioner import Provisioner
 from provisioner.collector.collector import COLLECTOR_PARAMETERS
+from provisioner.application.variant.cassandra import CASSANDRA_PARAMETERS
+from provisioner.application.variant.hbase import HBASE_PARAMETERS
 
 OUTPUT_TO_FILE: bool = True
+APPLICATION_PARAMETER_GROUPS: list[ParameterGroup] = [
+    CASSANDRA_PARAMETERS,
+    HBASE_PARAMETERS,
+]
 PARAMETER_GROUPS: list[ParameterGroup] = [
     CLUSTER_PARAMETERS,
-    APPLICATION_PARAMETERS,
+    APPLICATION_PARAMETERS
+] + APPLICATION_PARAMETER_GROUPS + [
     COLLECTOR_PARAMETERS,
     DOCKER_PARAMETERS
 ]

@@ -1,15 +1,17 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import Optional, Tuple
 from provisioner.collector.collector import OTELFeature
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
+from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
+from provisioner.structure.rack import Rack
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sedReplaceMappings
 import geni.portal as portal
-from geni.rspec import pg
+fromgeni.rspec import pg
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True
@@ -45,6 +47,7 @@ class AbstractApplication(ABC):
     version: str
     docker_config: DockerConfig
     topology_properties: TopologyProperties
+    topology: dict[Node, Tuple[DataCentre, Rack]]
     collector_features: set[OTELFeature]
 
     @abstractmethod
@@ -55,7 +58,7 @@ class AbstractApplication(ABC):
     @classmethod
     @abstractmethod
     def variant(cls) -> ApplicationVariant:
-        pass
+        raise NotImplementedError(f"No ApplicationVariant specified for {cls.__name__}")
 
     @abstractmethod
     def preConfigureClusterLevelProperties(self,
@@ -65,6 +68,12 @@ class AbstractApplication(ABC):
         self.topology_properties = topology_properties
         self.collector_features = params.collector_features
 
+    def constructTopology(self, cluster: Cluster) -> None:
+        for dc in cluster.datacentres.values():
+            for rack in dc.racks.values():
+                for node in rack.nodes:
+                    self.topology[node] = (dc, rack)
+                    print(f"{node.id} => ({dc.name}, {rack.name})")
 
     def unpackTar(self,
                   node: Node,
@@ -202,47 +211,10 @@ class ApplicationParameterGroup(ParameterGroup):
                     defaultValue="4G",
                     required=False
                 ),
-                Parameter(
-                    name="cassandra_ycsb_rf",
-                    description="Replication factor for YCSB keyspace",
-                    typ=portal.ParameterType.INTEGER,
-                    required=False,
-                    defaultValue=0
-                ),
-                Parameter(
-                    name="hbase_client_max_total_tasks",
-                    description="Maximum number of concurrent mutation tasks a single HTable instance will send to the cluster",
-                    typ=portal.ParameterType.INTEGER,
-                    required=False,
-                    defaultValue=100,
-                ),
-                Parameter(
-                    name="hbase_client_max_perserver_tasks",
-                    description="Maximum number of concurrent mutation tasks a single HTable instance wil send to a single region server",
-                    typ=portal.ParameterType.INTEGER,
-                    required=False,
-                    defaultValue=2,
-                ),
-                Parameter(
-                    name="hbase_client_max_perregion_tasks",
-                    description="Maximum number of concurrent mutation tasks that the client will maintain to a single region. if there is already this many writes in progress for this region, new puts won't be sent to this region until some writes finish",
-                    typ=portal.ParameterType.INTEGER,
-                    required=False,
-                    defaultValue=1,
-                ),
             ]
         )
 
     def validate(self, params: portal.Namespace) -> None:
         super().validate(params)
-        nodes_per_dc = params.racks_per_dc * params.nodes_per_rack
-        if params.cassandra_ycsb_rf == 0:
-            params.cassandra_ycsb_rf = nodes_per_dc
-        elif params.cassandra_ycsb_rf > nodes_per_dc:
-            portal.context.reportError(portal.ParameterError(
-                f"Replication factor {params.cassandra_ycsb_rf} must be less than or equal to number of nodes in dc {nodes_per_dc}",
-                ["cassandra_ycsb_rf"]
-            ))
-
 
 APPLICATION_PARAMETERS: ParameterGroup = ApplicationParameterGroup()

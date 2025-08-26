@@ -69,6 +69,9 @@ class OTELCollector(AbstractApplication):
             OTEL_CONTAINER_LOCAL_PATH
         )
 
+    def writeJMXCollectionConfig(self, node: Node) -> None:
+        return super().writeJMXCollectionConfig(node)
+
     def nodeInstallApplication(self, node: Node) -> None:
         # TODO: Need to update the collector config with 
         #       JMX consumers for each of the cluster nodes

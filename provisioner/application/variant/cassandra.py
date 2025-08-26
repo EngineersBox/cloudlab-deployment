@@ -1,10 +1,10 @@
 import math
 import geni.portal as portal
-from typing import Tuple, Optional
+from typing import Optional
 from geni.rspec import pg
 from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH, USERNAME, GROUPNAME
 from provisioner.docker import DockerConfig
-from provisioner.structure.datacentre import DataCentre
+from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
@@ -52,7 +52,6 @@ class CassandraApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
     # Node Ids to node interfaces
     seeds: dict[str, pg.Interface] = {}
-    topology: dict[Node, Tuple[DataCentre, Rack]] = {}
     has_init = False
     ycsb_rf: int = 0
     heap_size: Optional[str] = None
@@ -73,10 +72,10 @@ class CassandraApplication(AbstractApplication):
             params,
             topology_properties
         )
+        super().constructTopology(cluster)
         self.cluster = cluster
         self.determineSeedNodes(cluster, params)
-        self.constructTopology(cluster)
-        self.ycsb_rf = params.cassandra_ycsb_rf
+        self.ycsb_rf = params.cassandra.ycsb_rf
         self.heap_size = params.application_heap_size
 
     def determineSeedNodes(self, cluster: Cluster, params: portal.Namespace) -> None:
@@ -94,13 +93,6 @@ class CassandraApplication(AbstractApplication):
                         continue
                     self.seeds[node.id] = node.interface
                     break
-
-    def constructTopology(self, cluster: Cluster) -> None:
-        for dc in cluster.datacentres.values():
-            for rack in dc.racks.values():
-                for node in rack.nodes:
-                    self.topology[node] = (dc, rack)
-                    print(f"{node.id} => ({dc.name}, {rack.name})")
 
     def writeRackDcProperties(self, node: Node) -> None:
         dc, rack = self.topology[node]
@@ -204,3 +196,37 @@ default={default_dc.name}:{default_rack.name}
                 "CASSANDRA_SEEDS": ",".join([f"{seed.addresses[0].address}:7000" for seed in self.seeds.values()])
             }
         )
+
+class CassandraParameters(ParameterGroup):
+
+    def __init__(self):
+        super().__init__(parameters=[
+            Parameter(
+                name="ycsb_rf",
+                description="Replication factor for YCSB keyspace",
+                typ=portal.ParameterType.INTEGER,
+                required=False,
+                defaultValue=0
+            ),
+        ])
+
+    def validate(self, params: portal.Namespace) -> None:
+        super().validate(params)
+        nodes_per_dc = params.racks_per_dc * params.nodes_per_rack
+        if params.cassandra.ycsb_rf == 0:
+            params.cassandra.ycsb_rf = nodes_per_dc
+        elif params.cassandra.ycsb_rf > nodes_per_dc:
+            portal.context.reportError(portal.ParameterError(
+                f"Replication factor {params.cassandra.ycsb_rf} must be less than or equal to number of nodes in dc {nodes_per_dc}",
+                ["cassandra.ycsb_rf"]
+            ))
+
+    @classmethod
+    def name(cls) -> str:
+        return "Cassandra"
+
+    @classmethod
+    def id(cls) -> str:
+        return "cassandra"
+
+CASSANDRA_PARAMETERS = CassandraParameters()
