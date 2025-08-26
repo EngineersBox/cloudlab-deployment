@@ -15,10 +15,10 @@ from geni.rspec import pg
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True
-    MONGO_DB = "mongodb", True
-    SCYLLA = "scylla", True
     ELASTICSEARCH = "elasticsearch", True,
     HBASE = "hbase", True,
+    MONGO_DB = "mongodb", True
+    SCYLLA = "scylla", True
     OTEL_COLLECTOR = "otel_collector", False
 
     def __str__(self) -> str:

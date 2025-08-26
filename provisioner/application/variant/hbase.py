@@ -54,11 +54,11 @@ class HBaseApplication(AbstractApplication):
         return result
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
-        all_ips_prop: str = ",".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
+        zk_ips_prop: str = ",".join([f"\"{iface.addresses[0].address}\"" for iface in self.zk_nodes])
         sed(
             node,
             {
-                "@@ZK_NODE_IPS@@": all_ips_prop,
+                "@@ZK_NODE_IPS@@": zk_ips_prop,
                 "@@CLIENT_MAX_TOTAL_TASKS@@": f"{self.client_max_total_tasks}",
                 "@@CLIENT_MAX_PER_SERVER_TASKS@@": f"{self.client_max_perserver_tasks}",
                 "@@CLIENT_MAS_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}"
@@ -152,4 +152,4 @@ class HBaseParameters(ParameterGroup):
     def id(cls) -> str:
         return "hbase"
 
-HBASE_PARAMETERS = HBaseParameters()
+HBASE_PARAMETERS: ParameterGroup = HBaseParameters()

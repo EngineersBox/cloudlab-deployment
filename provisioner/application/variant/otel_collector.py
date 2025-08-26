@@ -22,10 +22,10 @@ OTEL_CONTAINER_LOCAL_PATH = "/otel-lgtm"
 
 COLLECTION_CONFIGS: dict[ApplicationVariant, type[CollectionConfiguration]] = {
     CassandraApplication.variant(): CassandraCollectionConfig,
-    MongoDBApplication.variant(): MonogDBCollectionConfig,
     ElasticsearchApplication.variant(): ElasticsearchCollectionConfig,
+    HBaseApplication.variant(): HBaseCollectionConfig,
+    MongoDBApplication.variant(): MonogDBCollectionConfig,
     ScyllaApplication.variant(): ScyllaCollectionConfig,
-    HBaseApplication.variant(): HBaseCollectionConfig
 }
 
 class OTELCollector(AbstractApplication):

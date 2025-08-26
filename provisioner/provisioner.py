@@ -1,7 +1,7 @@
-from typing import Iterator, Tuple
+from typing import Tuple
 import geni.portal as portal
 import geni.rspec.pg as pg
-import uuid, ipaddress
+import ipaddress
 from provisioner.application.variant.hbase import HBaseApplication
 from provisioner.net.network import NetworkManager
 from provisioner.application.app import *
@@ -17,17 +17,15 @@ from provisioner.collector.collector import Collector
 from provisioner.application.variant.otel_collector import OTELCollector
 from provisioner.topology import TopologyProperties
 
-
 APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
     CassandraApplication.variant(): CassandraApplication,
-    MongoDBApplication.variant(): MongoDBApplication,
     ElasticsearchApplication.variant(): ElasticsearchApplication,
-    ScyllaApplication.variant(): ScyllaApplication,
     HBaseApplication.variant(): HBaseApplication,
+    MongoDBApplication.variant(): MongoDBApplication,
+    ScyllaApplication.variant(): ScyllaApplication,
 }
 
 class Provisioner:
-
     request: pg.Request
     params: portal.Namespace
     docker_config: DockerConfig

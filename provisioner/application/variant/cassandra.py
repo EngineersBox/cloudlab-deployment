@@ -229,4 +229,4 @@ class CassandraParameters(ParameterGroup):
     def id(cls) -> str:
         return "cassandra"
 
-CASSANDRA_PARAMETERS = CassandraParameters()
+CASSANDRA_PARAMETERS: ParameterGroup = CassandraParameters()
