@@ -5,7 +5,7 @@ T = TypeVar("T")
 
 def takeSpread(sequence: Sequence[T], n: int) -> Iterator[T]:
     if (n > len(sequence)):
-        raise ValueError("Elements to select (n) cannot exceed list size")
+        raise ValueError("n cannot exceed list size")
     length = float(len(sequence))
     skip = length / n
     for i in range(n):
