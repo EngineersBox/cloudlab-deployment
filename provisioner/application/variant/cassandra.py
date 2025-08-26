@@ -9,7 +9,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.cluster import Cluster
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile, chmod, chown, mkdir, ifaceForIp, sedReplaceMappings
+from provisioner.utils import catToFile, chmod, chown, mkdir, ifaceForIp, sed
 
 # CASSANDRA_YAML_DEFAULT_PROPERTIES: dict[str, Any] = {
 #     "cluster_name": "Cassandra Cluster",
@@ -121,7 +121,7 @@ default={default_dc.name}:{default_rack.name}
         )
 
     def writeCassandraEnvProperties(self, node: Node) -> None:
-        sedReplaceMappings(
+        sed(
             node,
             {
                 "@@RMI_HOSTNAME@@": node.getInterfaceAddress(),
@@ -136,7 +136,7 @@ default={default_dc.name}:{default_rack.name}
             seed_address = seed.addresses[0].address
             formatted_seeds.append(f"{seed_address}:7000")
         csv_seeds = ",".join(formatted_seeds)
-        sedReplaceMappings(
+        sed(
             node,
             {
                 "@@SEED_IPS@@": csv_seeds,
@@ -147,7 +147,7 @@ default={default_dc.name}:{default_rack.name}
         )
 
     def writeCassandraOTELProperties(self, node: Node) -> None:
-        sedReplaceMappings(
+        sed(
             node,
             {
                 "OTEL_SERVICE_NAME": f"{self.variant()}-{node.id}",

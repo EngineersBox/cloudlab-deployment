@@ -31,7 +31,7 @@ def mkdir(node: Node, path: str, create_parent: bool = True) -> None:
 def ifaceForIp(ip: str) -> str:
     return f"sudo ifconfig | grep -B1 {ip} | grep -o '^\\w*'"
 
-def sedReplaceMappings(node: Node, mappings: dict[str, str], path: str) -> None:
+def sed(node: Node, mappings: dict[str, str], path: str) -> None:
     for key, value in mappings.items():
         node.instance.addService(pg.Execute(
             shell="/bin/bash",

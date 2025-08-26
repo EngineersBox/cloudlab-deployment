@@ -6,7 +6,7 @@ from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, sedReplaceMappings
+from provisioner.utils import catToFile, sed
 from provisioner.list_utils import takeSpread
 
 class HBaseApplication(AbstractApplication):
@@ -53,7 +53,7 @@ class HBaseApplication(AbstractApplication):
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
         all_ips_prop: str = ",".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
-        sedReplaceMappings(
+        sed(
             node,
             {
                 "@@ZK_NODE_IPS@@": all_ips_prop,

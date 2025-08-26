@@ -9,7 +9,7 @@ from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, sedReplaceMappings
+from provisioner.utils import catToFile, sed
 import geni.portal as portal
 from geni.rspec import pg
 
@@ -131,7 +131,7 @@ OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
             env_file_content
         )
         # Replace template var for pushing logs
-        sedReplaceMappings(
+        sed(
             node,
             {
                 "@@COLLECTOR_ADDRESS@@": collector_address
