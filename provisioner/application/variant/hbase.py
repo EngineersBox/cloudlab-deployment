@@ -11,6 +11,7 @@ from provisioner.list_utils import takeSpread
 
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
+    zk_nodes: list[pg.Interface] = []
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -36,13 +37,14 @@ class HBaseApplication(AbstractApplication):
         self.client_max_total_tasks = params.hbase.client_max_total_tasks
         self.client_max_perserver_tasks = params.hbase.client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase.client_max_perregion_tasks
+        self.zk_nodes = self.determineZookeeperNodes()
 
-    def allocateZookeeperNodes(self) -> list[pg.Interface]:
+    def determineZookeeperNodes(self) -> list[pg.Interface]:
         num_nodes = len(self.all_ips)
         zk_count = 3
-        if (num_nodes < 5):
+        if (num_nodes < 15):
             zk_count = min(3, num_nodes)
-        elif (num_nodes < 7):
+        elif (num_nodes < 21):
             zk_count = 5
         else:
             zk_count = 7
