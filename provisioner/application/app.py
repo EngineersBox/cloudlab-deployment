@@ -11,7 +11,7 @@ from provisioner.structure.rack import Rack
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sedReplaceMappings
 import geni.portal as portal
-fromgeni.rspec import pg
+from geni.rspec import pg
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True

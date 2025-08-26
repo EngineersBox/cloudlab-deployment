@@ -1,17 +1,13 @@
-import math
 import geni.portal as portal
-from typing import Optional, Tuple
 from geni.rspec import pg
-from provisioner import parameters
 from provisioner.application.app import LOCAL_PATH, AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
 from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.cluster import Cluster
-from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
-from provisioner.structure.rack import Rack
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sedReplaceMappings
+from provisioner.list_utils import takeSpread
 
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
@@ -42,8 +38,6 @@ class HBaseApplication(AbstractApplication):
         self.client_max_perregion_tasks = params.hbase.client_max_perregion_tasks
 
     def allocateZookeeperNodes(self) -> list[pg.Interface]:
-        # TODO: Test this logic and verify it splits ZK nodes
-        #       between DCs and racks correctly
         num_nodes = len(self.all_ips)
         zk_count = 3
         if (num_nodes < 5):
@@ -52,28 +46,9 @@ class HBaseApplication(AbstractApplication):
             zk_count = 5
         else:
             zk_count = 7
-        num_dcs = len(self.cluster.datacentres)
-        per_dc = max(1, int(math.floor(zk_count / float(num_dcs))))
-        allocated = 0
-        i = 0
-        dcs  = list(self.cluster.datacentres.items())
         result: list[pg.Interface] = []
-        while (allocated < zk_count):
-            dc_to_allocate = min(per_dc, zk_count - allocated)
-            dc: DataCentre = dcs[i][1]
-            racks = list(dc.racks.items())
-            per_rack = int(math.floor(dc_to_allocate / float(len(racks))))
-            rack_allocated = 0
-            j = 0
-            while (rack_allocated < per_dc):
-                rack_to_allocate = min(per_rack, dc_to_allocate - rack_allocated)
-                rack: Rack = racks[i][1]
-                count = min(len(rack.nodes), rack_to_allocate)
-                result.extend([node.interface for node in rack.nodes[0:count]])
-                rack_allocated += count
-                j += 1
-            i += 1
-            allocated += rack_allocated
+        for node in takeSpread(list(self.topology.keys()), zk_count):
+            result.append(node.interface)
         return result
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
