@@ -1,9 +1,11 @@
+from typing import Optional
 import geni.portal as portal
 from geni.rspec import pg
 from provisioner.application.app import LOCAL_PATH, AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
 from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.cluster import Cluster
+from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
@@ -12,6 +14,8 @@ from provisioner.list_utils import takeSpread
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
     zk_nodes: list[pg.Interface] = []
+    master: pg.Interface
+    backup_masters: list[pg.Interface] = []
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -37,7 +41,9 @@ class HBaseApplication(AbstractApplication):
         self.client_max_total_tasks = params.hbase.client_max_total_tasks
         self.client_max_perserver_tasks = params.hbase.client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase.client_max_perregion_tasks
+        self.master = list(self.topology.keys())[0].interface
         self.zk_nodes = self.determineZookeeperNodes()
+        self.backup_masters = self.determineBackupMasterNodes()
 
     def determineZookeeperNodes(self) -> list[pg.Interface]:
         num_nodes = len(self.all_ips)
@@ -51,6 +57,29 @@ class HBaseApplication(AbstractApplication):
         result: list[pg.Interface] = []
         for node in takeSpread(list(self.topology.keys()), zk_count):
             result.append(node.interface)
+        return result
+
+    def _findNodeWithoutRole(self, dc: DataCentre) -> Optional[Node]:
+        for rack in dc.racks.values():
+            for node in rack.nodes:
+                if (node.interface == self.master
+                    or node.interface in self.backup_masters
+                    or node.interface in self.zk_nodes):
+                    continue
+                return node
+        return None
+
+    def determineBackupMasterNodes(self) -> list[pg.Interface]:
+        result = []
+        backup_count = min(3, len(self.cluster.datacentres))
+        for dc in self.cluster.datacentres.values():
+            node = self._findNodeWithoutRole(dc)
+            if (node == None):
+                continue
+            result.append(node.interface)
+            backup_count -= 1
+        if (backup_count != 0):
+            raise ValueError("Unable to allocate backup masters")
         return result
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
@@ -67,9 +96,7 @@ class HBaseApplication(AbstractApplication):
         )
 
     def writeRegionServersConfig(self, node: Node) -> None:
-        # TODO: Saturate config
-        config = f"""
-        """
+        config = "\n".join([iface.addresses[0].address for iface in self.all_ips])
         catToFile(
             node,
             f"{LOCAL_PATH}/config/hbase/regionservers",
@@ -77,9 +104,7 @@ class HBaseApplication(AbstractApplication):
         )
 
     def writeBackupMastersConfig(self, node: Node) -> None:
-        # TODO: Saturate config
-        config = f"""
-        """
+        config = "\n".join([iface.addresses[0].address for iface in self.backup_masters])
         catToFile(
             node,
             f"{LOCAL_PATH}/config/hbase/regionservers",
@@ -98,6 +123,8 @@ class HBaseApplication(AbstractApplication):
         )
 
     def writeSSHKeys(self, node: Node) -> None:
+        # TODO: Create asymmetric key pair for each node
+        #       to use for inter-node auth
         pass
 
     def nodeInstallApplication(self, node: Node) -> None:
