@@ -15,6 +15,8 @@ from provisioner.application.variant.elasticsearch import ElasticsearchApplicati
 from provisioner.application.variant.scylla import ScyllaApplication
 from provisioner.collector.collector import Collector
 from provisioner.application.variant.otel_collector import OTELCollector
+from provisioner.structure.topology_assigner import TopologyAssigner
+from provisioner.structure.variant.hbase import HBaseTopologyAssigner
 from provisioner.topology import TopologyProperties
 
 APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
@@ -23,6 +25,10 @@ APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
     HBaseApplication.variant(): HBaseApplication,
     MongoDBApplication.variant(): MongoDBApplication,
     ScyllaApplication.variant(): ScyllaApplication,
+}
+
+APPLICATION_TOPOLOGY_ASSIGNERS: dict[ApplicationVariant, type[TopologyAssigner]] = {
+    HBaseApplication.variant(): HBaseTopologyAssigner,
 }
 
 class Provisioner:
@@ -40,8 +46,7 @@ class Provisioner:
             token=self.params.github_token
         )
 
-    def nodeProvision(self) -> Node:
-        id = f"node{self.__node_idx}"
+    def nodeProvision(self, name: str, roles: list[str]) -> Node:
         self.__node_idx += 1
         node_vm = pg.RawPC(id)
         node_vm.disk_image = self.params.node_disk_image
@@ -55,37 +60,38 @@ class Provisioner:
         )
         iface.addAddress(address)
         return Node(
-            id=id,
+            id=name,
             instance=node_vm,
             size=self.params.node_size,
-            interface=iface
+            interface=iface,
+            roles=roles
         )
 
-    def rackProvision(self, i: int) -> Rack:
+    def rackProvision(self, name: str) -> Rack:
         return Rack(
-            name="rack-%d" % i,
-            nodes=[]
+            name=name,
+            nodes={}
         )
 
-    def datacentreProvision(self, i: int) -> DataCentre:
+    def datacentreProvision(self, name: str) -> DataCentre:
         return DataCentre(
-            name="dc-%d" % i,
+            name=name,
             racks={}
         )
 
-    def partitionDataCentres(self) -> dict[str, DataCentre]:
+    def partitionDataCentres(self, app_variant: ApplicationVariant) -> dict[str, DataCentre]:
         print("Partitioning nodes into datacentres and racks")
         datacentres: dict[str, DataCentre] = {}
+        assigner = APPLICATION_TOPOLOGY_ASSIGNERS[app_variant]
+        topology = assigner.constructTopology(self.params.dc_count, self.params.racks_per_dc, self.params.nodes_per_rack)
         dc_idx: int = 0
         rack_idx: int = 0
-        for _ in range(self.params.dc_count):
-            dc: DataCentre = self.datacentreProvision(dc_idx)
-            datacentres[dc.name] = dc
-            for _ in range(self.params.racks_per_dc):
-                rack: Rack = self.rackProvision(rack_idx)
-                dc.racks[rack.name] = rack
-                for _ in range(self.params.nodes_per_rack):
-                    rack.nodes.append(self.nodeProvision())
+        for (dc, racks) in topology.items():
+            datacentres[dc] = self.datacentreProvision(dc)
+            for (rack, nodes) in racks.items():
+                dc.racks[rack] = self.rackProvision(rack)
+                for (node, roles) in nodes.items():
+                    rack.nodes.append(self.nodeProvision(node, roles))
                 rack_idx += 1
             dc_idx += 1
             rack_idx = 0
@@ -132,12 +138,13 @@ class Provisioner:
     def clusterProvisionHardware(self) -> Cluster:
         print("Provisioning cluster hardware")
         cluster: Cluster = Cluster()
-        cluster.datacentres = self.partitionDataCentres()
+        app_variant: ApplicationVariant = ApplicationVariant[str(self.params.application).upper()]
+        cluster.datacentres = self.partitionDataCentres(app_variant)
         return cluster
 
     def collectorProvisionHardware(self) -> Collector:
         print("Provisioning collector hardware")
-        return Collector(self.nodeProvision())
+        return Collector(self.nodeProvision("collector", []))
 
     def bindNodesViaLAN(self,
                         cluster: Cluster,

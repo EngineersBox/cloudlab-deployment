@@ -4,4 +4,5 @@ from .node import Node
 @dataclass
 class Rack:
     name: str
-    nodes: list[Node]
+    # role mapped nodes
+    nodes: dict[str, Node]

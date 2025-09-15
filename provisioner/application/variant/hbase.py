@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Optional
 import geni.portal as portal
 from geni.rspec import pg
@@ -8,17 +9,46 @@ from provisioner.structure.cluster import Cluster
 from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, sed
+from provisioner.utils import appendToFile, catToFile, sed
 from provisioner.list_utils import takeSpread
+
+class AppType(Enum):
+    HDFS = "hdfs"
+    HBase = "hbase"
+
+class NodeRole(Enum):
+    HBaseData = "hbase_data", AppType.HBase
+    HBaseZooKeeper = "hbase_zookeeper", AppType.HBase
+    HBaseMaster = "hbase_master", AppType.HBase
+    HBaseBackupMaster = "hbase_backup_master", AppType.HBase
+    HDFSName = "hdfs_name", AppType.HDFS
+    HDFSData = "hdfs_data", AppType.HDFS
+    HDFSResourceManager = "hdfs_resource_manager", AppType.HDFS
+    HDFSNodeManager = "hdfs_node_manager", AppType.HDFS,
+    HDFSWebProxy = "hdfs_web_proxy", AppType.HDFS,
+    HDFSMapRedHstory = "hdfs_mapred_history", AppType.HDFS
+
+    def __str__(self) -> str:
+        return "%s" % self.value[0]
+
+    def appType(self) -> AppType:
+        return self.value[1]
 
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
+    roles: dict[pg.Interface, list[NodeRole]] = {}
+    # HBase
     zk_nodes: list[pg.Interface] = []
     master: pg.Interface
     backup_masters: list[pg.Interface] = []
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
+    # HDFS
+    name_nodes: list[pg.Interface] = []
+    data_nodes: list[pg.Interface] = []
+    resource_manager_nodes: list[pg.Interface] = []
+    data_manager_nodes: list[pg.Interface] = []
     
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
@@ -42,10 +72,29 @@ class HBaseApplication(AbstractApplication):
         self.client_max_perserver_tasks = params.hbase.client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase.client_max_perregion_tasks
         self.master = list(self.topology.keys())[0].interface
-        self.zk_nodes = self.determineZookeeperNodes()
-        self.backup_masters = self.determineBackupMasterNodes()
+        self.zk_nodes = self.determineHBaseZookeeperNodes()
+        self.backup_masters = self.determineHBaseBackupMasterNodes()
 
-    def determineZookeeperNodes(self) -> list[pg.Interface]:
+    def assignNodeRoles(self) -> None:
+        self.roles.setdefault(list(self.topology.keys())[0].interface, []).extend([
+            NodeRole.HBaseMaster,
+            NodeRole.HDFSName
+        ])
+        for iface in self.determineHBaseZookeeperNodes():
+            self.roles.setdefault(iface, []).append(NodeRole.HBaseZooKeeper)
+        for iface in self.determineHBaseBackupMasterNodes():
+            self.roles.setdefault(iface, []).append(NodeRole.HBaseBackupMaster)
+        for iface in self.determineHDFSDataNodes():
+            self.roles.setdefault(iface, []).extend([
+                NodeRole.HDFSData,
+                NodeRole.HDFSNodeManager
+            ])
+        for iface in self.determineHDFSNameNodes():
+            self.roles.setdefault(iface, []).append(NodeRole.HDFSName)
+        for iface in self.determineHDFSResourceManagerNodes():
+            self.roles.setdefault(iface, []).append(NodeRole.HDFSResourceManager)
+
+    def determineHBaseZookeeperNodes(self) -> list[pg.Interface]:
         num_nodes = len(self.all_ips)
         zk_count = 3
         if (num_nodes < 15):
@@ -59,27 +108,44 @@ class HBaseApplication(AbstractApplication):
             result.append(node.interface)
         return result
 
-    def _findNodeWithoutRole(self, dc: DataCentre) -> Optional[Node]:
+    def _findHBaseNodeWithoutRole(self, dc: DataCentre) -> Optional[Node]:
         for rack in dc.racks.values():
             for node in rack.nodes:
-                if (node.interface == self.master
-                    or node.interface in self.backup_masters
-                    or node.interface in self.zk_nodes):
-                    continue
+                existing = self.roles.setdefault(node.interface, [])
+                if (NodeRole.HBaseMaster in existing
+                    or NodeRole.HBaseBackupMaster in existing
+                    or NodeRole.HBaseZooKeeper in existing):
+                    continue;
                 return node
         return None
 
-    def determineBackupMasterNodes(self) -> list[pg.Interface]:
+    def determineHBaseBackupMasterNodes(self) -> list[pg.Interface]:
         result = []
         backup_count = min(3, len(self.cluster.datacentres))
         for dc in self.cluster.datacentres.values():
-            node = self._findNodeWithoutRole(dc)
+            node = self._findHBaseNodeWithoutRole(dc)
             if (node == None):
                 continue
             result.append(node.interface)
             backup_count -= 1
         if (backup_count != 0):
             raise ValueError("Unable to allocate backup masters")
+        return result
+
+    def determineHDFSNameNodes(self) -> list[pg.Interface]:
+        result = []
+        for dc in self.cluster.datacentres.values():
+            result.append(list(dc.racks.values())[-1].nodes[0].interface)
+        return result
+
+    def determineHDFSDataNodes(self) -> list[pg.Interface]:
+        return self.all_ips
+
+    def determineHDFSResourceManagerNodes(self) -> list[pg.Interface]:
+        result = []
+        for dc in self.cluster.datacentres.values():
+            racks = list(dc.racks.values())
+            result.append(racks[min(1, len(racks) - 1)].nodes[0].interface)
         return result
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
@@ -107,24 +173,39 @@ class HBaseApplication(AbstractApplication):
         config = "\n".join([iface.addresses[0].address for iface in self.backup_masters])
         catToFile(
             node,
-            f"{LOCAL_PATH}/config/hbase/regionservers",
+            f"{LOCAL_PATH}/config/hbase/backup-masters",
             config
         )
 
-    def writeEnvConfig(self, node: Node) -> None:
-        # TODO: Saturate config
+    def writeZookeeperConfig(self, node: Node) -> None:
+        pass
+
+    def writeHBaseConfiguration(self, node: Node, role: NodeRole) -> None:
+        self.writeRegionServersConfig(node)
+        self.writeBackupMastersConfig(node)
+        if (role == NodeRole.HBaseZooKeeper):
+            self.writeZookeeperConfig(node)
+
+    def writeHDFSYarnConfiguraton(self, node: Node) -> None:
+        pass
+
+    def writeHDFSMapReduceConfiguration(self, node: Node) -> None:
+        pass
+
+    def writeHDFSEnvConfiguration(self, node: Node) -> None:
         config = f"""
-        HBASE_MANAGES_ZK=true
+        export HADOOP_HOME={LOCAL_PATH}/hdfs
         """
-        catToFile(
+        appendToFile(
             node,
-            f"{LOCAL_PATH}/config/hbase/hbase-env.sh",
+            "/etc/profile.d",
             config
         )
+        config = f"""
 
-    def writeSSHKeys(self, node: Node) -> None:
-        # TODO: Create asymmetric key pair for each node
-        #       to use for inter-node auth
+        """
+
+    def writeHDFSConfiguration(self, node: Node) -> None:
         pass
 
     def nodeInstallApplication(self, node: Node) -> None:
@@ -134,8 +215,11 @@ class HBaseApplication(AbstractApplication):
         self.writeHBaseSiteProperties(node)
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
-        self.writeEnvConfig(node)
-        self.writeSSHKeys(node)
+        for role in self.roles[node.interface]:
+            if (role.appType() == AppType.HBase):
+                self.writeHBaseConfiguration(node, role)
+            elif (role.appType() == AppType.HDFS):
+                self.writeHDFSConfiguration(node)
         self.bootstrapNode(
             node,
             {
