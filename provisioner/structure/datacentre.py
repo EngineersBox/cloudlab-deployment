@@ -4,6 +4,7 @@ from .rack import Rack
 @dataclass
 class DataCentre:
     name: str
+    # name mapped racks
     racks: dict[str, Rack]
 
     def __hash__(self) -> int:

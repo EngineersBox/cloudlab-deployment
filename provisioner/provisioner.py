@@ -87,11 +87,13 @@ class Provisioner:
         dc_idx: int = 0
         rack_idx: int = 0
         for (dc, racks) in topology.items():
-            datacentres[dc] = self.datacentreProvision(dc)
+            new_dc = self.datacentreProvision(dc)
+            datacentres[dc] = new_dc
             for (rack, nodes) in racks.items():
-                dc.racks[rack] = self.rackProvision(rack)
+                new_rack = self.rackProvision(rack)
+                new_dc.racks[rack] = new_rack
                 for (node, roles) in nodes.items():
-                    rack.nodes.append(self.nodeProvision(node, roles))
+                    new_rack.nodes[node] = self.nodeProvision(node, roles)
                 rack_idx += 1
             dc_idx += 1
             rack_idx = 0
