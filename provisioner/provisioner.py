@@ -16,6 +16,7 @@ from provisioner.application.variant.scylla import ScyllaApplication
 from provisioner.collector.collector import Collector
 from provisioner.application.variant.otel_collector import OTELCollector
 from provisioner.structure.topology_assigner import TopologyAssigner
+from provisioner.structure.variant.cassandra import CassandraTopologyAssigner
 from provisioner.structure.variant.hbase import HBaseTopologyAssigner
 from provisioner.topology import TopologyProperties
 
@@ -28,6 +29,7 @@ APPLICATION_BINDINGS: dict[ApplicationVariant, type[AbstractApplication]] = {
 }
 
 APPLICATION_TOPOLOGY_ASSIGNERS: dict[ApplicationVariant, type[TopologyAssigner]] = {
+    CassandraApplication.variant(): CassandraTopologyAssigner,
     HBaseApplication.variant(): HBaseTopologyAssigner,
 }
 
@@ -79,11 +81,11 @@ class Provisioner:
             racks={}
         )
 
-    def partitionDataCentres(self, app_variant: ApplicationVariant) -> dict[str, DataCentre]:
+    def partitionDataCentres(self, app_variant: ApplicationVariant) -> tuple[dict[str, DataCentre], ProvisioningTopology, InverseProvisioningTopology]:
         print("Partitioning nodes into datacentres and racks")
         datacentres: dict[str, DataCentre] = {}
         assigner = APPLICATION_TOPOLOGY_ASSIGNERS[app_variant]
-        topology = assigner.constructTopology(self.params.dc_count, self.params.racks_per_dc, self.params.nodes_per_rack)
+        (topology, inverse_topology) = assigner.constructTopology(self.params.dc_count, self.params.racks_per_dc, self.params.nodes_per_rack)
         dc_idx: int = 0
         rack_idx: int = 0
         for (dc, racks) in topology.items():
@@ -97,7 +99,7 @@ class Provisioner:
                 rack_idx += 1
             dc_idx += 1
             rack_idx = 0
-        return datacentres
+        return (datacentres, topology, inverse_topology)
 
     def bootstrapDB(self,
                     cluster: Cluster,
@@ -116,7 +118,7 @@ class Provisioner:
         # Addresses are assigned in previous loop, we need to know
         # them all before installing as each node should know the
         # addresses of all other nodes
-        for node in topology_properties.db_nodes:
+        for node in topology_properties.db_nodes.values():
             print(f"Installing {self.params.application} on node {node.id}")
             app.nodeInstallApplication(node)
 
@@ -139,10 +141,13 @@ class Provisioner:
     
     def clusterProvisionHardware(self) -> Cluster:
         print("Provisioning cluster hardware")
-        cluster: Cluster = Cluster()
         app_variant: ApplicationVariant = ApplicationVariant[str(self.params.application).upper()]
-        cluster.datacentres = self.partitionDataCentres(app_variant)
-        return cluster
+        datacentres, topology, inverse_topology = self.partitionDataCentres(app_variant)
+        return Cluster(
+            topology,
+            inverse_topology,
+            datacentres
+        )
 
     def collectorProvisionHardware(self) -> Collector:
         print("Provisioning collector hardware")
@@ -177,9 +182,12 @@ class Provisioner:
         collector: Collector = self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
         self.request.addResource(lan)
+        db_nodes = {}
+        for node in cluster.nodesGenerator():
+            db_nodes[node.id] = node
         topology_properties: TopologyProperties = TopologyProperties(
             collector.node.interface,
-            [node for node in cluster.nodesGenerator()]
+            db_nodes
         )
         self.bootstrapDB(cluster, topology_properties)
         self.bootstrapCollector(cluster, collector, topology_properties)

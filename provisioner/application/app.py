@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Tuple
+from typing import Optional
 from provisioner.collector.collector import OTELFeature
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
-from provisioner.structure.datacentre import DataCentre
 from provisioner.structure.node import Node
-from provisioner.structure.rack import Rack
+from provisioner.structure.topology_assigner import InverseProvisioningTopology, ProvisioningTopology
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
 import geni.portal as portal
@@ -46,8 +45,7 @@ class ServiceStartTiming(Enum):
 class AbstractApplication(ABC):
     version: str
     docker_config: DockerConfig
-    topology_properties: TopologyProperties
-    topology: dict[Node, Tuple[DataCentre, Rack]]
+    cluster = Cluster
     collector_features: set[OTELFeature]
 
     @abstractmethod
@@ -66,14 +64,8 @@ class AbstractApplication(ABC):
                                            params: portal.Namespace,
                                            topology_properties: TopologyProperties) -> None:
         self.topology_properties = topology_properties
+        self.cluster = cluster
         self.collector_features = params.collector_features
-
-    def constructTopology(self, cluster: Cluster) -> None:
-        for dc in cluster.datacentres.values():
-            for rack in dc.racks.values():
-                for node in rack.nodes:
-                    self.topology[node] = (dc, rack)
-                    print(f"{node.id} => ({dc.name}, {rack.name})")
 
     def unpackTar(self,
                   node: Node,

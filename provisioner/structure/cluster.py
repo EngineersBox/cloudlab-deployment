@@ -1,13 +1,17 @@
 import geni.portal as portal
 from dataclasses import dataclass, field
 from typing import Iterator
+from provisioner import topology
 from provisioner.structure.node import Node
 from provisioner.structure.rack import Rack
 from provisioner.structure.datacentre import DataCentre
 from provisioner.parameters import Parameter, ParameterGroup
+from provisioner.structure.topology_assigner import InverseProvisioningTopology, ProvisioningTopology
 
 @dataclass
 class Cluster:
+    topology: ProvisioningTopology = field(default_factory=dict)
+    inverse_topology: InverseProvisioningTopology = field(default_factory=dict)
     datacentres: dict[str, DataCentre] = field(default_factory=dict)
 
     def racksGenerator(self) -> Iterator[Rack]:
@@ -17,7 +21,7 @@ class Cluster:
 
     def nodesGenerator(self) -> Iterator[Node]:
         for rack in self.racksGenerator():
-            for node in rack.nodes:
+            for node in rack.nodes.values():
                 yield node
 
 class ClusterParameterGroup(ParameterGroup):

@@ -72,7 +72,6 @@ class CassandraApplication(AbstractApplication):
             params,
             topology_properties
         )
-        super().constructTopology(cluster)
         self.cluster = cluster
         self.determineSeedNodes(cluster, params)
         self.ycsb_rf = params.cassandra.ycsb_rf
@@ -88,17 +87,17 @@ class CassandraApplication(AbstractApplication):
             racks: list[Rack] = list(dc.racks.values())
             for i in range(seeds_per_dc):
                 rack: Rack = racks[i % len(racks)]
-                for node in rack.nodes:
+                for node in rack.nodes.values():
                     if (node.id in self.seeds):
                         continue
                     self.seeds[node.id] = node.interface
                     break
 
     def writeRackDcProperties(self, node: Node) -> None:
-        dc, rack = self.topology[node]
+        _roles, dc, rack = self.cluster.inverse_topology[node.id]
         properties = f"""# DC and Rack specification of this node
-dc={dc.name}
-rack={rack.name}
+dc={dc}
+rack={rack}
 """
         catToFile(
             node,
@@ -107,13 +106,13 @@ rack={rack.name}
         )
 
     def writeTopologyProperties(self, node: Node) -> None:
-        default_dc, default_rack = list(self.topology.values())[0]
+        _roles, default_dc, default_rack = list(self.cluster.inverse_topology.values())[0]
         properties = f"""# Mappings of Node IP=DC:Rack
 # Default mapping for unknown nodes
-default={default_dc.name}:{default_rack.name}
+default={default_dc}:{default_rack}
 """
-        for _node, (dc, rack) in self.topology.items():
-            properties += f"\n{_node.getInterfaceAddress()}={dc.name}:{rack.name}"
+        for node1, (_roles, dc, rack) in self.cluster.inverse_topology.items():
+            properties += f"\n{self.topology_properties.db_nodes[node1].getInterfaceAddress()}={dc}:{rack}"
         catToFile(
             node,
             f"{LOCAL_PATH}/config/cassandra/cassandra-topology.properties",
