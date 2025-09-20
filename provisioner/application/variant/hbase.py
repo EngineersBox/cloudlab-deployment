@@ -100,7 +100,7 @@ class HBaseApplication(AbstractApplication):
 
     def writeHDFSEnvConfiguration(self, node: Node) -> None:
         config = f"""
-        export HADOOP_HOME={LOCAL_PATH}/hdfs
+        export HADOOP_HOME={LOCAL_PATH}/hadoop
         """
         appendToFile(
             node,
