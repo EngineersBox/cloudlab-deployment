@@ -34,22 +34,27 @@ class HBaseApplication(AbstractApplication):
         )
         self.all_ips = [node.interface for node in cluster.nodesGenerator()]
         self.cluster = cluster
-        self.client_max_total_tasks = params.hbase.client_max_total_tasks
-        self.client_max_perserver_tasks = params.hbase.client_max_perserver_tasks
-        self.client_max_perregion_tasks = params.hbase.client_max_perregion_tasks
+        self.client_max_total_tasks = params.hbase_client_max_total_tasks
+        self.client_max_perserver_tasks = params.hbase_client_max_perserver_tasks
+        self.client_max_perregion_tasks = params.hbase_client_max_perregion_tasks
         found = False
         for node, (roles, _dc, _rack) in self.cluster.inverse_topology.items():
-            if (HBaseNodeRole.HBaseMaster in roles):
+            print(f"Node: {node} Roles: {roles}")
+            if (str(HBaseNodeRole.HBASE_MASTER) in roles):
                 self.master = topology_properties.db_nodes[node].interface
                 found = True
                 break
         if (not found):
-            raise ValueError("No nodes has the HBaseMaster role assigned")
+            raise ValueError("No node has the HBaseMaster role assigned")
+
+    def writeJMXCollectionConfig(self, node: Node) -> None:
+        # TODO: Implement this?
+        return super().writeJMXCollectionConfig(node)
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
         zk_nodes = [
             self.topology_properties.db_nodes[node].interface
-            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBaseZooKeeper))
+            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_ZOOKEEPER))
         ]
         zk_ips_prop: str = ",".join([f"\"{iface.addresses[0].address}\"" for iface in zk_nodes])
         sed(
@@ -74,7 +79,7 @@ class HBaseApplication(AbstractApplication):
     def writeBackupMastersConfig(self, node: Node) -> None:
         backup_masters = [
             self.topology_properties.db_nodes[node].interface 
-            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBaseBackupMaster))
+            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_BACKUP_MASTER))
         ]
         config = "\n".join([iface.addresses[0].address for iface in backup_masters])
         catToFile(
@@ -89,7 +94,7 @@ class HBaseApplication(AbstractApplication):
     def writeHBaseConfiguration(self, node: Node, role: HBaseNodeRole) -> None:
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
-        if (role == HBaseNodeRole.HBaseZooKeeper):
+        if (role == HBaseNodeRole.HBASE_ZOOKEEPER):
             self.writeZookeeperConfig(node)
 
     def writeHDFSYarnConfiguraton(self, node: Node) -> None:
@@ -123,7 +128,7 @@ class HBaseApplication(AbstractApplication):
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
         for role in node.roles:
-            hbase_role = HBaseNodeRole[role]
+            hbase_role = HBaseNodeRole[role.upper()]
             app_type = hbase_role.appType()
             if (app_type == HBaseAppType.HBase):
                 self.writeHBaseConfiguration(node, hbase_role)
@@ -144,21 +149,21 @@ class HBaseParameters(ParameterGroup):
     def __init__(self):
         super().__init__(parameters=[
             Parameter(
-                name="client_max_total_tasks",
+                name="hbase_client_max_total_tasks",
                 description="Maximum number of concurrent mutation tasks a single HTable instance will send to the cluster",
                 typ=portal.ParameterType.INTEGER,
                 required=False,
                 defaultValue=100,
             ),
             Parameter(
-                name="client_max_perserver_tasks",
+                name="hbase_client_max_perserver_tasks",
                 description="Maximum number of concurrent mutation tasks a single HTable instance wil send to a single region server",
                 typ=portal.ParameterType.INTEGER,
                 required=False,
                 defaultValue=2,
             ),
             Parameter(
-                name="client_max_perregion_tasks",
+                name="hbase_client_max_perregion_tasks",
                 description="Maximum number of concurrent mutation tasks that the client will maintain to a single region. if there is already this many writes in progress for this region, new puts won't be sent to this region until some writes finish",
                 typ=portal.ParameterType.INTEGER,
                 required=False,

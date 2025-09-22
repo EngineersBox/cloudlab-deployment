@@ -7,16 +7,16 @@ class HBaseAppType(Enum):
     HBase = "hbase"
 
 class HBaseNodeRole(Enum):
-    HBaseData = "hbase_data", HBaseAppType.HBase
-    HBaseZooKeeper = "hbase_zookeeper", HBaseAppType.HBase
-    HBaseMaster = "hbase_master", HBaseAppType.HBase
-    HBaseBackupMaster = "hbase_backup_master", HBaseAppType.HBase
-    HDFSName = "hdfs_name", HBaseAppType.HDFS
-    HDFSData = "hdfs_data", HBaseAppType.HDFS
-    HDFSResourceManager = "hdfs_resource_manager", HBaseAppType.HDFS
-    HDFSNodeManager = "hdfs_node_manager", HBaseAppType.HDFS,
-    HDFSWebProxy = "hdfs_web_proxy", HBaseAppType.HDFS,
-    HDFSMapRedHstory = "hdfs_mapred_history", HBaseAppType.HDFS
+    HBASE_DATA = "hbase_data", HBaseAppType.HBase
+    HBASE_ZOOKEEPER = "hbase_zookeeper", HBaseAppType.HBase
+    HBASE_MASTER = "hbase_master", HBaseAppType.HBase
+    HBASE_BACKUP_MASTER = "hbase_backup_master", HBaseAppType.HBase
+    HDFS_NAME = "hdfs_name", HBaseAppType.HDFS
+    HDFS_DATA = "hdfs_data", HBaseAppType.HDFS
+    HDFS_RESOURCE_MANAGER = "hdfs_resource_manager", HBaseAppType.HDFS
+    HDFS_NODE_MANAGER = "hdfs_node_manager", HBaseAppType.HDFS,
+    HDFS_WEB_PROXY = "hdfs_web_proxy", HBaseAppType.HDFS,
+    HDFS_MAPRED_HISTORY = "hdfs_mapred_history", HBaseAppType.HDFS
 
     def __str__(self) -> str:
         return "%s" % self.value[0]
@@ -30,7 +30,7 @@ class HBaseTopologyAssigner(TopologyAssigner):
     def createHBaseMasterNode(cls, node_id: int, topology: ProvisioningTopology) -> None:
         dc = list(topology.values())[0]
         rack = list(dc.values())[0]
-        rack.setdefault(f"node-{node_id}", [str(HBaseNodeRole.HBaseMaster)])
+        rack.setdefault(f"node-{node_id}", []).append(str(HBaseNodeRole.HBASE_MASTER))
 
     @classmethod
     def determineHBaseZookeeperNodes(cls,
@@ -45,16 +45,16 @@ class HBaseTopologyAssigner(TopologyAssigner):
         else:
             zk_count = 7
         for (node, (_roles, dc, rack)) in takeSpread(list(inverse_topology.items()), zk_count):
-            topology[dc][rack][node].append(str(HBaseNodeRole.HBaseZooKeeper))
+            topology[dc][rack][node].append(str(HBaseNodeRole.HBASE_ZOOKEEPER))
 
     @classmethod
     def createHDFSAuxiliaryNodes(cls, node_id: int, topology: ProvisioningTopology) -> None:
         dc = list(topology.values())[0]
         rack = list(dc.values())[0]
-        rack.setdefault(f"node-{node_id}", [
-            str(HBaseNodeRole.HDFSName),
-            str(HBaseNodeRole.HDFSWebProxy),
-            str(HBaseNodeRole.HDFSMapRedHstory)
+        rack.setdefault(f"node-{node_id}", []).extend([
+            str(HBaseNodeRole.HDFS_NAME),
+            str(HBaseNodeRole.HDFS_WEB_PROXY),
+            str(HBaseNodeRole.HDFS_MAPRED_HISTORY)
         ])
 
     @classmethod
@@ -70,10 +70,11 @@ class HBaseTopologyAssigner(TopologyAssigner):
                 rack = dc.setdefault(rack_name, {})
                 for _ in range(nodes_per_rack):
                     node_name = f"node-{node_id}"
-                    roles = rack.setdefault(node_name, [
-                        str(HBaseNodeRole.HBaseData),
-                        str(HBaseNodeRole.HDFSData),
-                        str(HBaseNodeRole.HDFSNodeManager)
+                    roles = rack.setdefault(node_name, [])
+                    roles.extend([
+                        str(HBaseNodeRole.HBASE_DATA),
+                        str(HBaseNodeRole.HDFS_DATA),
+                        str(HBaseNodeRole.HDFS_NODE_MANAGER)
                     ])
                     inverse_topology[node_name] = (roles, dc_name, rack_name)
                     node_id += 1
@@ -86,4 +87,9 @@ class HBaseTopologyAssigner(TopologyAssigner):
         cls.createHBaseMasterNode(node_id, topology)
         node_id += 1
         cls.createHDFSAuxiliaryNodes(node_id, topology)
+        # Ensure inverse mapping consistency
+        for (dc, racks) in topology.items():
+            for rack, nodes in racks.items():
+                for node, roles in nodes.items():
+                    inverse_topology[node] = (roles, dc, rack)
         return (topology, inverse_topology)

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 import geni.rspec.pg as pg 
 
@@ -9,7 +9,7 @@ class Node:
     size: str
     interface: pg.Interface
     config: Optional[str] = None
-    roles: list[str] = []
+    roles: list[str] = field(default_factory=list)
 
     def __hash__(self) -> int:
         return self.id.__hash__()

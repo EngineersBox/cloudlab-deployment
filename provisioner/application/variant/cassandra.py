@@ -74,7 +74,7 @@ class CassandraApplication(AbstractApplication):
         )
         self.cluster = cluster
         self.determineSeedNodes(cluster, params)
-        self.ycsb_rf = params.cassandra.ycsb_rf
+        self.ycsb_rf = params.cassandra_ycsb_rf
         self.heap_size = params.application_heap_size
 
     def determineSeedNodes(self, cluster: Cluster, params: portal.Namespace) -> None:
@@ -201,7 +201,7 @@ class CassandraParameters(ParameterGroup):
     def __init__(self):
         super().__init__(parameters=[
             Parameter(
-                name="ycsb_rf",
+                name="cassandra_ycsb_rf",
                 description="Replication factor for YCSB keyspace",
                 typ=portal.ParameterType.INTEGER,
                 required=False,
@@ -212,12 +212,12 @@ class CassandraParameters(ParameterGroup):
     def validate(self, params: portal.Namespace) -> None:
         super().validate(params)
         nodes_per_dc = params.racks_per_dc * params.nodes_per_rack
-        if params.cassandra.ycsb_rf == 0:
-            params.cassandra.ycsb_rf = nodes_per_dc
-        elif params.cassandra.ycsb_rf > nodes_per_dc:
+        if params.cassandra_ycsb_rf == 0:
+            params.cassandra_ycsb_rf = nodes_per_dc
+        elif params.cassandra_ycsb_rf > nodes_per_dc:
             portal.context.reportError(portal.ParameterError(
-                f"Replication factor {params.cassandra.ycsb_rf} must be less than or equal to number of nodes in dc {nodes_per_dc}",
-                ["cassandra.ycsb_rf"]
+                f"Replication factor {params.cassandra_ycsb_rf} must be less than or equal to number of nodes in dc {nodes_per_dc}",
+                ["cassandra_ycsb_rf"]
             ))
 
     @classmethod
