@@ -12,6 +12,7 @@ from provisioner.utils import catToFile, sed
 
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
+    hdfs_data_nodes: list[pg.Interface] = []
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -43,7 +44,8 @@ class HBaseApplication(AbstractApplication):
             if (str(HBaseNodeRole.HBASE_MASTER) in roles):
                 self.master = topology_properties.db_nodes[node].interface
                 found = True
-                break
+            if (str(HBaseNodeRole.HDFS_DATA) in roles):
+                self.hdfs_data_nodes.append(topology_properties.db_nodes[node].interface)
         if (not found):
             raise ValueError("No node has the HBaseMaster role assigned")
 
@@ -116,6 +118,11 @@ class HBaseApplication(AbstractApplication):
                 "@@DFS_REPLICATION@@": "1"
             },
             f"${VAR_LIB_PATH}/hadoop/etc/hadoop/hdfs-site.xml"
+        )
+        catToFile(
+            node,
+            f"{VAR_LIB_PATH}/hadoop/etc/hadoop/workers",
+            "\n".join([f"{iface.addresses[0].address}" for iface in self.hdfs_data_nodes])
         )
         self.writeHDFSYarnConfiguraton(node)
         self.writeHDFSMapReduceConfiguration(node)
