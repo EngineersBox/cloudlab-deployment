@@ -129,11 +129,13 @@ class HBaseApplication(AbstractApplication):
                 self.writeHBaseConfiguration(node, hbase_role)
             elif (app_type == HBaseAppType.HDFS):
                 self.writeHDFSConfiguration(node)
+        node_roles_prop = " ".join(node.roles)
         self.bootstrapNode(
             node,
             {
-                "NODE_ALL_IPS": "({})".format(all_ips_prop),
+                "NODE_ALL_IPS": f"({all_ips_prop})",
                 "INVOKE_INIT": "true",
+                "NODE_ROLES": f"({node_roles_prop})"
             }
         )
 

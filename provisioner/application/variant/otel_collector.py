@@ -83,14 +83,14 @@ class OTELCollector(AbstractApplication):
         )
         self.writeTargetAppCollectionConfigs(node)
         node_ips = []
-        for cluster_node in self.topology_properties.db_nodes:
+        for cluster_node in self.topology_properties.db_nodes.values():
             node_ips.append(cluster_node.getInterfaceAddress())
         self.bootstrapNode(
             node,
             {
                 "INVOKE_INIT": "true",
                 "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
-                "CASSANDRA_NODE_IPS": "'" + ",".join(node_ips) + "'"
+                "NODE_IPS": "'" + ",".join(node_ips) + "'"
             },
             ServiceStartTiming.AFTER_INIT
         )
