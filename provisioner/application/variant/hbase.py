@@ -1,6 +1,6 @@
 import geni.portal as portal
 from geni.rspec import pg
-from provisioner.application.app import LOCAL_PATH, AbstractApplication, ApplicationVariant
+from provisioner.application.app import LOCAL_PATH, VAR_LIB_PATH, AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
 from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.cluster import Cluster
@@ -8,7 +8,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseAppType, HBaseNodeRole
 from provisioner.topology import TopologyProperties
-from provisioner.utils import appendToFile, catToFile, sed
+from provisioner.utils import catToFile, sed
 
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
@@ -93,26 +93,27 @@ class HBaseApplication(AbstractApplication):
             self.writeZookeeperConfig(node)
 
     def writeHDFSYarnConfiguraton(self, node: Node) -> None:
-        pass
+        sed(
+            node,
+            {
+                "@@AUX_SERVICES@@": "mapreduce_shuffle"
+            },
+            f"${VAR_LIB_PATH}/hadoop/etc/hadoop/yarn-site.xml"
+        )
 
     def writeHDFSMapReduceConfiguration(self, node: Node) -> None:
         pass
 
-    def writeHDFSEnvConfiguration(self, node: Node) -> None:
-        config = f"""
-        export HADOOP_HOME={LOCAL_PATH}/hadoop
-        """
-        appendToFile(
-            node,
-            "/etc/profile.d",
-            config
-        )
-        config = f"""
-
-        """
-
     def writeHDFSConfiguration(self, node: Node) -> None:
-        pass
+        sed(
+            node,
+            {
+                "@@DFS_REPLICATION@@": "1"
+            },
+            f"${VAR_LIB_PATH}/hadoop/etc/hadoop/hdfs-site.xml"
+        )
+        self.writeHDFSYarnConfiguraton(node)
+        self.writeHDFSMapReduceConfiguration(node)
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
