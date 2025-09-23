@@ -16,6 +16,8 @@ HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
     hdfs_data_nodes: list[pg.Interface] = []
+    hbase_master_node: str = ""
+    hdfs_name_node: pg.Interface = pg.Interface("", "")
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -41,16 +43,15 @@ class HBaseApplication(AbstractApplication):
         self.client_max_total_tasks = params.hbase_client_max_total_tasks
         self.client_max_perserver_tasks = params.hbase_client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase_client_max_perregion_tasks
-        found = False
-        for node, (roles, _dc, _rack) in self.cluster.inverse_topology.items():
-            print(f"Node: {node} Roles: {roles}")
-            if (str(HBaseNodeRole.HBASE_MASTER) in roles):
-                self.master = topology_properties.db_nodes[node].interface
-                found = True
-            if (str(HBaseNodeRole.HDFS_DATA) in roles):
-                self.hdfs_data_nodes.append(topology_properties.db_nodes[node].interface)
-        if (not found):
-            raise ValueError("No node has the HBaseMaster role assigned")
+        self.hdfs_data_nodes = [topology_properties.db_nodes[node].interface for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_DATA))]
+        master = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_MASTER), True)
+        if (len(master) == 0):
+            raise ValueError("No node has the HBASE_MASTER role assigned")
+        self.hbase_master_node = master[0]
+        name_node = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_NAME), True)
+        if (len(master) == 0):
+            raise ValueError("No node has the HDFS_NAME role assigned")
+        self.hdfs_name_node = topology_properties.db_nodes[name_node[0]].interface
 
     def writeJMXCollectionConfig(self, node: Node) -> None:
         # TODO: Implement this?
@@ -68,7 +69,8 @@ class HBaseApplication(AbstractApplication):
                 "@@ZK_NODE_IPS@@": zk_ips_prop,
                 "@@CLIENT_MAX_TOTAL_TASKS@@": f"{self.client_max_total_tasks}",
                 "@@CLIENT_MAX_PER_SERVER_TASKS@@": f"{self.client_max_perserver_tasks}",
-                "@@CLIENT_MAS_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}"
+                "@@CLIENT_MAS_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}",
+                "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
             },
             f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
         )
