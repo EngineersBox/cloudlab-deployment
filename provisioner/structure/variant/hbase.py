@@ -1,5 +1,5 @@
 from enum import Enum
-from provisioner.structure.topology_assigner import InverseProvisioningTopology, TopologyAssigner, ProvisioningTopology
+from provisioner.structure.topology_assigner import InverseProvisioningTopology, TopologyAssigner, ProvisioningTopology, addOrUpdateNode
 from provisioner.list_utils import takeSpread
 
 class HBaseAppType(Enum):
@@ -27,10 +27,20 @@ class HBaseNodeRole(Enum):
 class HBaseTopologyAssigner(TopologyAssigner):
 
     @classmethod
-    def createHBaseMasterNode(cls, node_id: int, topology: ProvisioningTopology) -> None:
-        dc = list(topology.values())[0]
-        rack = list(dc.values())[0]
-        rack.setdefault(f"node-{node_id}", []).append(str(HBaseNodeRole.HBASE_MASTER))
+    def createHBaseMasterNode(cls,
+                              node_id: int,
+                              topology: ProvisioningTopology,
+                              inverse_topology: InverseProvisioningTopology) -> None:
+        dc = list(topology.items())[0]
+        rack = list(dc[1].keys())[0]
+        addOrUpdateNode(
+            topology,
+            inverse_topology,
+            dc[0],
+            rack,
+            f"node-{node_id}",
+            [str(HBaseNodeRole.HBASE_MASTER)]
+        )
 
     @classmethod
     def determineHBaseZookeeperNodes(cls,
@@ -45,17 +55,34 @@ class HBaseTopologyAssigner(TopologyAssigner):
         else:
             zk_count = 7
         for (node, (_roles, dc, rack)) in takeSpread(list(inverse_topology.items()), zk_count):
-            topology[dc][rack][node].append(str(HBaseNodeRole.HBASE_ZOOKEEPER))
+            addOrUpdateNode(
+                topology,
+                inverse_topology,
+                dc,
+                rack,
+                node,
+                [str(HBaseNodeRole.HBASE_ZOOKEEPER)]
+            )
 
     @classmethod
-    def createHDFSAuxiliaryNodes(cls, node_id: int, topology: ProvisioningTopology) -> None:
-        dc = list(topology.values())[0]
-        rack = list(dc.values())[0]
-        rack.setdefault(f"node-{node_id}", []).extend([
-            str(HBaseNodeRole.HDFS_NAME),
-            str(HBaseNodeRole.HDFS_WEB_PROXY),
-            str(HBaseNodeRole.HDFS_MAPRED_HISTORY)
-        ])
+    def createHDFSAuxiliaryNode(cls,
+                                node_id: int,
+                                topology: ProvisioningTopology,
+                                inverse_topology: InverseProvisioningTopology) -> None:
+        dc = list(topology.items())[0]
+        rack = list(dc[1].keys())[0]
+        addOrUpdateNode(
+            topology,
+            inverse_topology,
+            dc[0],
+            rack,
+            f"node-{node_id}",
+            [
+                str(HBaseNodeRole.HDFS_NAME),
+                str(HBaseNodeRole.HDFS_WEB_PROXY),
+                str(HBaseNodeRole.HDFS_MAPRED_HISTORY)
+            ]
+        )
 
     @classmethod
     def constructTopology(cls, dcs: int, racks_per_dc: int, nodes_per_rack: int) -> tuple[ProvisioningTopology, InverseProvisioningTopology]:
@@ -64,19 +91,22 @@ class HBaseTopologyAssigner(TopologyAssigner):
         node_id = 0
         for dc_id in range(dcs):
             dc_name = f"dc-{dc_id}"
-            dc = topology.setdefault(dc_name, {})
             for rack_id in range(racks_per_dc):
                 rack_name = f"rack-{rack_id}"
-                rack = dc.setdefault(rack_name, {})
                 for _ in range(nodes_per_rack):
                     node_name = f"node-{node_id}"
-                    roles = rack.setdefault(node_name, [])
-                    roles.extend([
-                        str(HBaseNodeRole.HBASE_DATA),
-                        str(HBaseNodeRole.HDFS_DATA),
-                        str(HBaseNodeRole.HDFS_NODE_MANAGER)
-                    ])
-                    inverse_topology[node_name] = (roles, dc_name, rack_name)
+                    addOrUpdateNode(
+                        topology,
+                        inverse_topology,
+                        dc_name,
+                        rack_name,
+                        node_name,
+                        [
+                            str(HBaseNodeRole.HBASE_DATA),
+                            str(HBaseNodeRole.HDFS_DATA),
+                            str(HBaseNodeRole.HDFS_NODE_MANAGER)
+                        ]
+                    )
                     node_id += 1
         cls.determineHBaseZookeeperNodes(
             node_id + 1,
@@ -84,12 +114,6 @@ class HBaseTopologyAssigner(TopologyAssigner):
             inverse_topology
         )
         node_id += 1
-        cls.createHBaseMasterNode(node_id, topology)
-        node_id += 1
-        cls.createHDFSAuxiliaryNodes(node_id, topology)
-        # Ensure inverse mapping consistency
-        for (dc, racks) in topology.items():
-            for rack, nodes in racks.items():
-                for node, roles in nodes.items():
-                    inverse_topology[node] = (roles, dc, rack)
+        cls.createHBaseMasterNode(node_id, topology, inverse_topology)
+        cls.createHDFSAuxiliaryNode(node_id, topology, inverse_topology)
         return (topology, inverse_topology)

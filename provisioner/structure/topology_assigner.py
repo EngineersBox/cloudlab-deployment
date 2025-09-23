@@ -17,6 +17,20 @@ def findNodesWithRole(inverse_topology: InverseProvisioningTopology,
             break
     return result
 
+# Creates DC/Rack/Node if missing, then adds/appends roles
+def addOrUpdateNode(topology: ProvisioningTopology,
+                    inverse_topology: InverseProvisioningTopology,
+                    dc_name: str,
+                    rack_name: str,
+                    node_name: str,
+                    roles: list[str]) -> list[str]:
+    dc = topology.setdefault(dc_name, {})
+    rack = dc.setdefault(rack_name, {})
+    current_roles = rack.setdefault(node_name, [])
+    current_roles.extend(roles)
+    inverse_topology[node_name] = (current_roles, dc_name, rack_name)
+    return current_roles
+
 class TopologyAssigner(ABC):
     
     @classmethod
