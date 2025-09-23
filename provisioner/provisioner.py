@@ -50,7 +50,7 @@ class Provisioner:
 
     def nodeProvision(self, name: str, roles: list[str]) -> Node:
         self.__node_idx += 1
-        node_vm = pg.RawPC(id)
+        node_vm = pg.RawPC(name)
         node_vm.disk_image = self.params.node_disk_image
         self.request.addResource(node_vm)
         iface: pg.Interface = node_vm.addInterface(NetworkManager.CURRENT_PHYSICAL_INTERFACE)

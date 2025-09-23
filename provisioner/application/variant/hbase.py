@@ -10,6 +10,9 @@ from provisioner.structure.variant.hbase import HBaseAppType, HBaseNodeRole
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
 
+HADOOP_HOME: str = f"{VAR_LIB_PATH}/hadoop"
+HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
+
 class HBaseApplication(AbstractApplication):
     all_ips: list[pg.Interface] = []
     hdfs_data_nodes: list[pg.Interface] = []
@@ -105,7 +108,7 @@ class HBaseApplication(AbstractApplication):
             {
                 "@@AUX_SERVICES@@": "mapreduce_shuffle"
             },
-            f"${VAR_LIB_PATH}/hadoop/etc/hadoop/yarn-site.xml"
+            f"{HADOOP_CONF}/yarn-site.xml"
         )
 
     def writeHDFSMapReduceConfiguration(self, node: Node) -> None:
@@ -117,11 +120,11 @@ class HBaseApplication(AbstractApplication):
             {
                 "@@DFS_REPLICATION@@": "1"
             },
-            f"${VAR_LIB_PATH}/hadoop/etc/hadoop/hdfs-site.xml"
+            f"${HADOOP_CONF}/hdfs-site.xml"
         )
         catToFile(
             node,
-            f"{VAR_LIB_PATH}/hadoop/etc/hadoop/workers",
+            f"{HADOOP_CONF}/workers",
             "\n".join([f"{iface.addresses[0].address}" for iface in self.hdfs_data_nodes])
         )
         self.writeHDFSYarnConfiguraton(node)
