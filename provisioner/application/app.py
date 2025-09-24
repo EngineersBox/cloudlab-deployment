@@ -73,7 +73,7 @@ class AbstractApplication(ABC):
                   path: Optional[str] = None,
                   use_pg_install: bool = True) -> None:
         if url == None:
-            url=f"https://github.com/EngineersBox/cassandra-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
+            url=f"https://github.com/EngineersBox/database-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
         if path == None:
             path = VAR_LIB_PATH
         if (use_pg_install):
