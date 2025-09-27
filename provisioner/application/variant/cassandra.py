@@ -165,7 +165,6 @@ default={default_dc}:{default_rack}
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
         self.unpackTar(node)
-        all_ips_prop: str = " ".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
         self.writeRackDcProperties(node)
         self.writeTopologyProperties(node)
         self.writeCassandraEnvProperties(node)
@@ -178,20 +177,20 @@ default={default_dc}:{default_rack}
         self.bootstrapNode(
             node,
             {
-                "NODE_ALL_IPS": "({})".format(all_ips_prop),
-                "SEED_NODE": "true" if node in self.seeds else "false",
-                "INVOKE_INIT": "true" if invoke_init_script else "false",
-                "DC_COUNT": f"{len(self.cluster.datacentres)}",
-                "YCSB_RF": f"{self.ycsb_rf}",
+                "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
+                "SEED_NODE": node in self.seeds,
+                "INVOKE_INIT": invoke_init_script,
+                "DC_COUNT": len(self.cluster.datacentres),
+                "YCSB_RF": self.ycsb_rf,
                 # FIXME: the docker-entrypoint.sh script that is run when the Cassandra container starts
                 #        will try to replace all the ip fields (seeds, listen_address, etc) with the first
                 #        non-localhost IP it can find (which will always be wrong for us). It won't do this
                 #        if the env vars corresponding to those fields are set. Either set those or just
                 #        publish a new image that doesn't do this stuff on startup.
-                "CASSANDRA_RPC_ADDRESS": f"{node.getInterfaceAddress()}",
-                "CASSANDRA_LISTEN_ADDRESS": f"{node.getInterfaceAddress()}",
-                "CASSANDRA_BROADCAST_ADDRESS": f"{node.getInterfaceAddress()}",
-                "CASSANDRA_BROADCAST_RPC_ADDRESS": f"{node.getInterfaceAddress()}",
+                "CASSANDRA_RPC_ADDRESS": node.getInterfaceAddress(),
+                "CASSANDRA_LISTEN_ADDRESS": node.getInterfaceAddress(),
+                "CASSANDRA_BROADCAST_ADDRESS": node.getInterfaceAddress(),
+                "CASSANDRA_BROADCAST_RPC_ADDRESS": node.getInterfaceAddress(),
                 "CASSANDRA_SEEDS": ",".join([f"{seed.addresses[0].address}:7000" for seed in self.seeds.values()])
             }
         )

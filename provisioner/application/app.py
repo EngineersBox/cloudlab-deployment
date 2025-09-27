@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
+from provisioner.application.config import bashEncoder, jsonEncoder
 from provisioner.collector.collector import OTELFeature
 from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
@@ -11,6 +12,7 @@ from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
 import geni.portal as portal
 from geni.rspec import pg
+import json
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True
@@ -89,32 +91,10 @@ class AbstractApplication(ABC):
 
     def _writeEnvFile(self,
                       node: Node,
-                      properties: dict[str, str]) -> None:
-        collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
-        # Ensure the collector exports data for enabled features
-        for feat in self.collector_features:
-            properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
-        if OTELFeature.TRACES in self.collector_features:
-            properties["OTEL_TRACES_SAMPLER"] = "always_on"
+                      properties: dict[str, Any]) -> None:
         # Bash env file
-        env_file_content = f"""# Node configuration properties
-INSTALL_PATH={LOCAL_PATH}
-APPLICATION_VARIANT={self.variant()}
-APPLICATION_VERSION={self.version}
-NODE_IP={node.getInterfaceAddress()}
-
-EBPF_NET_INTAKE_HOST={collector_address}
-EBPF_NET_INTAKE_PORT=8000
-"""
-        if (self.variant() != ApplicationVariant.OTEL_COLLECTOR):
-            env_file_content += f"""
-OTEL_EXPORTER_OTLP_ENDPOINT=http://{collector_address}:4318
-OTEL_SERVICE_NAME={self.variant()}-{node.id}
-OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
-"""
-
-        for (k,v) in properties.items():
-            env_file_content += f"\n{k}={v}"
+        env_file_content = "# Node configuration properties\n"
+        env_file_content += bashEncoder(properties)
         # Bash sourcable configuration properties that the
         # bootstrap script uses as well as docker containers
         catToFile(
@@ -122,13 +102,14 @@ OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
             f"{LOCAL_PATH}/node_env",
             env_file_content
         )
-        # Replace template var for pushing logs
-        sed(
+
+    def _writeBootstrapConfigFile(self,
+                                  node: Node,
+                                  properties: dict[str, Any]) -> None:
+        catToFile(
             node,
-            {
-                "@@COLLECTOR_ADDRESS@@": collector_address
-            },
-            f"{LOCAL_PATH}/config/otel/otel-instance-config.yaml"
+            f"{LOCAL_PATH}/init/bootstrap/bootstrap_config.json",
+            jsonEncoder(properties)
         )
 
     def createClusterUser(self, node: Node) -> None:
@@ -139,12 +120,40 @@ OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
 
     def bootstrapNode(self,
                       node: Node,
-                      properties: dict[str, str],
+                      properties: dict[str, Any],
                       service_start_timing: ServiceStartTiming = ServiceStartTiming.BEFORE_INIT) -> None:
+        collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
+        # Ensure the collector exports data for enabled features
+        for feat in self.collector_features:
+            properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
+        if OTELFeature.TRACES in self.collector_features:
+            properties["OTEL_TRACES_SAMPLER"] = "always_on"
         properties["SERVICE_START_TIMING"] = service_start_timing.toBashLiteral()
+        properties["INSTALL_PATH"] = LOCAL_PATH
+        properties["APPLICATION_VARIANT"] = str(self.variant())
+        properties["APPLICATION_VERSION"] = self.version
+        properties["NODE_IP"] = node.getInterfaceAddress()
+        properties["EBPF_NET_INTAKE_HOST"] = collector_address
+        properties["EBPF_NET_INTAKE_PORT"] = 8000
+        if (self.variant() != ApplicationVariant.OTEL_COLLECTOR):
+            properties["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://{collector_address}:4318"
+            properties["OTEL_SERVICES_NAME"] = f"{self.variant()}-{node.id}"
+            properties["OTEL_RESOURCE_ATTRIBUTES"] = f"application={self.variant()},node={node.id}"
         self._writeEnvFile(
             node,
             properties
+        )
+        self._writeBootstrapConfigFile(
+            node,
+            properties
+        )
+        # Replace template var for pushing logs
+        sed(
+            node,
+            {
+                "@@COLLECTOR_ADDRESS@@": collector_address
+            },
+            f"{LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         )
         # Login to docker registry
         node.instance.addService(pg.Execute(
@@ -155,10 +164,14 @@ OTEL_RESOURCE_ATTRIBUTES=application={self.variant()},node={node.id}
             #       up an external credentials provider to manage this.
             command=f"sudo su {USERNAME} -c 'docker login ghcr.io -u {self.docker_config.username} -p {self.docker_config.token}'",
         ))
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo bash {LOCAL_PATH}/init/bootstrap/setup.sh"
+        ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo ln -s {LOCAL_PATH}/units/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
+            command=f"sudo ln -s {LOCAL_PATH}/init/bootstrap/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
         ))
 
     @abstractmethod
