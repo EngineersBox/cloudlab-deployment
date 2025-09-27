@@ -166,12 +166,12 @@ class AbstractApplication(ABC):
         ))
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo bash {LOCAL_PATH}/init/bootstrap/setup.sh"
+            command=f"sudo bash {LOCAL_PATH}/init/setup.sh"
         ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo ln -s {LOCAL_PATH}/init/bootstrap/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
+            command=f"sudo ln -s {LOCAL_PATH}/init/bootstrap.service /etc/systemd/system/bootstrap.service && sudo systemctl start bootstrap.service"
         ))
 
     @abstractmethod
