@@ -15,7 +15,7 @@ from provisioner.application.variant.elasticsearch import ElasticsearchApplicati
 from provisioner.application.variant.scylla import ScyllaApplication
 from provisioner.collector.collector import Collector
 from provisioner.application.variant.otel_collector import OTELCollector
-from provisioner.structure.topology_assigner import TopologyAssigner
+from provisioner.structure.topology_assigner import TopologyAssigner, ProvisioningTopology, InverseProvisioningTopology
 from provisioner.structure.variant.cassandra import CassandraTopologyAssigner
 from provisioner.structure.variant.hbase import HBaseTopologyAssigner
 from provisioner.topology import TopologyProperties

@@ -1,6 +1,6 @@
 import geni.portal as portal
 from geni.rspec import pg
-from provisioner.application.app import LOCAL_PATH, VAR_LIB_PATH, AbstractApplication, ApplicationVariant
+from provisioner.application.app import LOCAL_PATH, USERNAME, GROUPNAME, VAR_LIB_PATH, AbstractApplication, ApplicationVariant
 from provisioner.docker import DockerConfig
 from provisioner.parameters import Parameter, ParameterGroup
 from provisioner.structure.cluster import Cluster
@@ -8,7 +8,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseAppType, HBaseNodeRole
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, sed
+from provisioner.utils import catToFile, chmod, chown, mkdir, sed
 
 HADOOP_HOME: str = f"{VAR_LIB_PATH}/hadoop"
 HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
@@ -132,13 +132,20 @@ class HBaseApplication(AbstractApplication):
         self.writeHDFSYarnConfiguraton(node)
         self.writeHDFSMapReduceConfiguration(node)
 
+    def createDirectories(self, node: Node) -> None:
+        dirs = ["data", "logs"]
+        for dir in dirs:
+            mkdir(node, f"/var/lib/cluster/{dir}", True)
+        chmod(node, f"/var/lib/cluster", 0o777, recursive=True)
+        chown(node, f"/var/lib/cluster", USERNAME, GROUPNAME, recursive=True)
+
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
         self.unpackTar(node)
-        all_ips_prop: str = " ".join([f"\"{iface.addresses[0].address}\"" for iface in self.all_ips])
         self.writeHBaseSiteProperties(node)
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
+        self.createDirectories(node)
         for role in node.roles:
             hbase_role = HBaseNodeRole[role.upper()]
             app_type = hbase_role.appType()
@@ -146,13 +153,12 @@ class HBaseApplication(AbstractApplication):
                 self.writeHBaseConfiguration(node, hbase_role)
             elif (app_type == HBaseAppType.HDFS):
                 self.writeHDFSConfiguration(node)
-        node_roles_prop = " ".join(node.roles)
         self.bootstrapNode(
             node,
             {
-                "NODE_ALL_IPS": f"({all_ips_prop})",
-                "INVOKE_INIT": "true",
-                "NODE_ROLES": f"({node_roles_prop})"
+                "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
+                "INVOKE_INIT": True,
+                "NODE_ROLES": node.roles
             }
         )
 

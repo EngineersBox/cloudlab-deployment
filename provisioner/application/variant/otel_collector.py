@@ -1,4 +1,4 @@
-from provisioner.application.app import AbstractApplication, ApplicationVariant, ServiceStartTiming, LOCAL_PATH
+from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
 from provisioner.application.variant.cassandra import CassandraApplication
 from provisioner.application.variant.scylla import ScyllaApplication
 from provisioner.application.variant.mongodb import MongoDBApplication
@@ -76,7 +76,7 @@ class OTELCollector(AbstractApplication):
         # TODO: Need to update the collector config with 
         #       JMX consumers for each of the cluster nodes
         super().nodeInstallApplication(node)
-        self.unpackTar(node)
+        self.unpackTar(node, use_pg_install=False)
         self.unpackTar(
             node,
             f"https://github.com/brianfrankcooper/YCSB/releases/download/{self.ycsb_version}/ycsb-{self.ycsb_version}.tar.gz"
@@ -88,10 +88,9 @@ class OTELCollector(AbstractApplication):
         self.bootstrapNode(
             node,
             {
-                "INVOKE_INIT": "true",
+                "INVOKE_INIT": True,
                 "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
-                "NODE_IPS": "'" + ",".join(node_ips) + "'"
-            },
-            ServiceStartTiming.AFTER_INIT
+                "NODE_IPS": node_ips
+            }
         )
         self.createYCSBBaseProfile(node)

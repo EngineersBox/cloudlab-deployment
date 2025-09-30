@@ -24,10 +24,10 @@ def chmod(node: Node, path: str, permissions: int, recursive: bool = False) -> N
         command=f"sudo chmod {'-R ' if recursive else ''}0{permissions:o} {path}"
     ))
 
-def chown(node: Node, path: str, user: str, group: str) -> None:
+def chown(node: Node, path: str, user: str, group: str, recursive: bool = False) -> None:
     node.instance.addService(pg.Execute(
         shell="/bin/bash",
-        command=f"sudo chown {user}:{group} {path}"
+        command=f"sudo chown {'-R ' if recursive else ''}{user}:{group} {path}"
     ))
 
 def mkdir(node: Node, path: str, create_parent: bool = True) -> None:

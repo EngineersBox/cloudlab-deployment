@@ -7,12 +7,10 @@ from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
-from provisioner.structure.topology_assigner import InverseProvisioningTopology, ProvisioningTopology
 from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
 import geni.portal as portal
 from geni.rspec import pg
-import json
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True
@@ -36,13 +34,6 @@ VAR_LIB_PATH = "/var/lib"
 LOCAL_PATH = f"{VAR_LIB_PATH}/cluster"
 USERNAME = "cluster"
 GROUPNAME = "cluster"
-
-class ServiceStartTiming(Enum):
-    BEFORE_INIT = "\"BEFORE_INIT\""
-    AFTER_INIT = "\"AFTER_INIT\""
-
-    def toBashLiteral(self) -> str:
-        return self.value
 
 class AbstractApplication(ABC):
     version: str
@@ -77,17 +68,24 @@ class AbstractApplication(ABC):
         if url == None:
             url=f"https://github.com/EngineersBox/database-benchmarking/releases/download/{self.variant()}-{self.version}/{self.variant()}.tar.gz"
         if path == None:
-            path = VAR_LIB_PATH
+            path = LOCAL_PATH
         if (use_pg_install):
             node.instance.addService(pg.Install(
                 url=url,
                 path=path
             ))
         else:
-            node.instance.addService(pg.Execute(
-                shell="/bin/bash",
-                command=f"sudo wget {url} && sudo tar -xzf {self.variant()}.tar.gz -C /var/lib/. && sudo rm {self.variant()}.tar.gz"
-            ))
+            commands=[
+                f"sudo wget {url}",
+                f"sudo mkdir -p {path}",
+                f"sudo tar -xzf {self.variant()}.tar.gz --directory={path}",
+                f"sudo rm {self.variant()}.tar.gz"
+            ]
+            for command in commands:
+                node.instance.addService(pg.Execute(
+                    shell="/bin/bash",
+                    command=command
+                ))
 
     def _writeEnvFile(self,
                       node: Node,
@@ -120,15 +118,13 @@ class AbstractApplication(ABC):
 
     def bootstrapNode(self,
                       node: Node,
-                      properties: dict[str, Any],
-                      service_start_timing: ServiceStartTiming = ServiceStartTiming.BEFORE_INIT) -> None:
+                      properties: dict[str, Any]) -> None:
         collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
         # Ensure the collector exports data for enabled features
         for feat in self.collector_features:
             properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
         if OTELFeature.TRACES in self.collector_features:
             properties["OTEL_TRACES_SAMPLER"] = "always_on"
-        properties["SERVICE_START_TIMING"] = service_start_timing.toBashLiteral()
         properties["INSTALL_PATH"] = LOCAL_PATH
         properties["APPLICATION_VARIANT"] = str(self.variant())
         properties["APPLICATION_VERSION"] = self.version
@@ -166,7 +162,7 @@ class AbstractApplication(ABC):
         ))
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"sudo bash {LOCAL_PATH}/init/setup.sh"
+            command=f"{LOCAL_PATH}/init/setup.sh"
         ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(

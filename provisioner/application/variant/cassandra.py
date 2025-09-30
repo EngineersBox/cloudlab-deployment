@@ -94,7 +94,7 @@ class CassandraApplication(AbstractApplication):
                     break
 
     def writeRackDcProperties(self, node: Node) -> None:
-        _roles, dc, rack = self.cluster.inverse_topology[node.id]
+        _, dc, rack = self.cluster.inverse_topology[node.id]
         properties = f"""# DC and Rack specification of this node
 dc={dc}
 rack={rack}
@@ -106,12 +106,12 @@ rack={rack}
         )
 
     def writeTopologyProperties(self, node: Node) -> None:
-        _roles, default_dc, default_rack = list(self.cluster.inverse_topology.values())[0]
+        _, default_dc, default_rack = list(self.cluster.inverse_topology.values())[0]
         properties = f"""# Mappings of Node IP=DC:Rack
 # Default mapping for unknown nodes
 default={default_dc}:{default_rack}
 """
-        for node1, (_roles, dc, rack) in self.cluster.inverse_topology.items():
+        for node1, (_, dc, rack) in self.cluster.inverse_topology.items():
             properties += f"\n{self.topology_properties.db_nodes[node1].getInterfaceAddress()}={dc}:{rack}"
         catToFile(
             node,
@@ -159,8 +159,8 @@ default={default_dc}:{default_rack}
         dirs = ["data", "logs"]
         for dir in dirs:
             mkdir(node, f"/var/lib/cluster/{dir}", True)
-            chmod(node, f"/var/lib/cluster/{dir}", 0o777)
-            chown(node, f"/var/lib/cluster/{dir}", USERNAME, GROUPNAME)
+        chmod(node, f"/var/lib/cluster", 0o777, recursive=True)
+        chown(node, f"/var/lib/cluster", USERNAME, GROUPNAME, recursive=True)
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
