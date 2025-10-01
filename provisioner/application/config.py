@@ -1,4 +1,4 @@
-import json
+import json, re
 from typing import Any
 
 def bashEncoder(obj: dict[str, Any]) -> str:
@@ -10,9 +10,9 @@ def bashEncoder(obj: dict[str, Any]) -> str:
         elif (isinstance(v, dict)):
             raise ValueError("No implementation for nested dictionaries in bash encoder")
         else:
-            content.append(f"{k}={v}")
+            content.append(f"{k}=\"{v}\"")
     return "\n".join(content)
 
 def jsonEncoder(obj: dict[str, Any]) -> str:
-    return json.dumps(obj)
+    return re.escape(json.dumps(obj))
 

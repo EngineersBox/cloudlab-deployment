@@ -2,20 +2,12 @@ import geni.rspec.pg as pg
 
 from provisioner.structure.node import Node
 
-def catToFile(node: Node, path: str, content: str) -> None:
+def catToFile(node: Node, path: str, content: str, append: bool = False) -> None:
     if not content.endswith("\n"):
         content += "\n"
     node.instance.addService(pg.Execute(
         shell="/bin/bash",
-        command=f"sudo cat > {path} <<-EOF\n{content}EOF"
-    ))
-
-def appendToFile(node: Node, path: str, content: str) -> None:
-    if not content.endswith("\n"):
-        content += "\n"
-    node.instance.addService(pg.Execute(
-        shell="/bin/bash",
-        command=f"sudo cat >> {path} <<-EOF\n{content}EOF"
+        command=f"cat <<-EOF | sudo tee {'-a ' if append else ''}{path}\n{content}EOF"
     ))
 
 def chmod(node: Node, path: str, permissions: int, recursive: bool = False) -> None:

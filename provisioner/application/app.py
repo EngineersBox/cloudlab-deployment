@@ -106,7 +106,7 @@ class AbstractApplication(ABC):
                                   properties: dict[str, Any]) -> None:
         catToFile(
             node,
-            f"{LOCAL_PATH}/init/bootstrap/bootstrap_config.json",
+            f"{LOCAL_PATH}/init/bootstrap_config.json",
             jsonEncoder(properties)
         )
 

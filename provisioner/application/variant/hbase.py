@@ -21,6 +21,7 @@ class HBaseApplication(AbstractApplication):
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
+    hadoop_version: str = "3.4.2"
     
     def __init__(self, version: str, docker_config: DockerConfig):
         super().__init__(version, docker_config)
@@ -43,6 +44,7 @@ class HBaseApplication(AbstractApplication):
         self.client_max_total_tasks = params.hbase_client_max_total_tasks
         self.client_max_perserver_tasks = params.hbase_client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase_client_max_perregion_tasks
+        self.hadoop_version = params.hbase_hadoop_version
         self.hdfs_data_nodes = [topology_properties.db_nodes[node].interface for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_DATA))]
         master = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_MASTER), True)
         if (len(master) == 0):
@@ -122,7 +124,7 @@ class HBaseApplication(AbstractApplication):
             {
                 "@@DFS_REPLICATION@@": "1"
             },
-            f"${HADOOP_CONF}/hdfs-site.xml"
+            f"{HADOOP_CONF}/hdfs-site.xml"
         )
         catToFile(
             node,
@@ -131,6 +133,12 @@ class HBaseApplication(AbstractApplication):
         )
         self.writeHDFSYarnConfiguraton(node)
         self.writeHDFSMapReduceConfiguration(node)
+
+    def installHDFS(self, node: Node) -> None:
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"{LOCAL_PATH}/scripts/install-hdfs.sh {self.hadoop_version}"
+        ))
 
     def createDirectories(self, node: Node) -> None:
         dirs = ["data", "logs"]
@@ -141,11 +149,12 @@ class HBaseApplication(AbstractApplication):
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
+        self.createDirectories(node)
         self.unpackTar(node)
+        self.installHDFS(node)
         self.writeHBaseSiteProperties(node)
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
-        self.createDirectories(node)
         for role in node.roles:
             hbase_role = HBaseNodeRole[role.upper()]
             app_type = hbase_role.appType()
@@ -187,6 +196,13 @@ class HBaseParameters(ParameterGroup):
                 required=False,
                 defaultValue=1,
             ),
+            Parameter(
+                name="hbase_hadoop_version",
+                description="Version of Hadoop to install and configure for HBase to run on top of.",
+                typ=portal.ParameterType.STRING,
+                required=False,
+                defaultValue="3.4.2",
+            )
         ])
 
     @classmethod
