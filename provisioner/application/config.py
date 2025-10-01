@@ -1,4 +1,4 @@
-import json, re
+import json
 from typing import Any
 
 def bashEncoder(obj: dict[str, Any]) -> str:
@@ -14,5 +14,5 @@ def bashEncoder(obj: dict[str, Any]) -> str:
     return "\n".join(content)
 
 def jsonEncoder(obj: dict[str, Any]) -> str:
-    return re.escape(json.dumps(obj))
+    return json.dumps(obj)
 

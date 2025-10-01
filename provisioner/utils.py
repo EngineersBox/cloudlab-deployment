@@ -5,6 +5,7 @@ from provisioner.structure.node import Node
 def catToFile(node: Node, path: str, content: str, append: bool = False) -> None:
     if not content.endswith("\n"):
         content += "\n"
+    content = content.replace("\"", "\\\"")
     node.instance.addService(pg.Execute(
         shell="/bin/bash",
         command=f"cat <<-EOF | sudo tee {'-a ' if append else ''}{path}\n{content}EOF"
