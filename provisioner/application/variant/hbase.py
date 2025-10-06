@@ -110,7 +110,9 @@ class HBaseApplication(AbstractApplication):
         sed(
             node,
             {
-                "@@AUX_SERVICES@@": "mapreduce_shuffle"
+                "@@AUX_SERVICES@@": "mapreduce_shuffle",
+                # TODO: Set this and any other properties necessary for all HDFS related configs
+                "@@WEB_PROXY_ADDRESS@@": "<TODO>"
             },
             f"{HADOOP_CONF}/yarn-site.xml"
         )
