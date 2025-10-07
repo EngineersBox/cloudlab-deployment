@@ -79,7 +79,8 @@ class HBaseTopologyAssigner(TopologyAssigner):
             f"node-{node_id}",
             [
                 str(HBaseNodeRole.HDFS_NAME),
-                str(HBaseNodeRole.HDFS_WEB_PROXY),
+                str(HBaseNodeRole.HDFS_RESOURCE_MANAGER),
+                # str(HBaseNodeRole.HDFS_WEB_PROXY),
                 str(HBaseNodeRole.HDFS_MAPRED_HISTORY)
             ]
         )

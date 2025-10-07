@@ -18,6 +18,7 @@ class HBaseApplication(AbstractApplication):
     hdfs_data_nodes: list[pg.Interface] = []
     hbase_master_node: str = ""
     hdfs_name_node: pg.Interface = pg.Interface("", "")
+    hdfs_resource_manager: pg.Interface = pg.Interface("", "")
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -51,9 +52,13 @@ class HBaseApplication(AbstractApplication):
             raise ValueError("No node has the HBASE_MASTER role assigned")
         self.hbase_master_node = master[0]
         name_node = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_NAME), True)
-        if (len(master) == 0):
+        if (len(name_node) == 0):
             raise ValueError("No node has the HDFS_NAME role assigned")
         self.hdfs_name_node = topology_properties.db_nodes[name_node[0]].interface
+        resource_manager = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_RESOURCE_MANAGER), True)
+        if (len(resource_manager) == 0):
+            raise ValueError("No node has the HDFS_RESOURCE_MANAGER role assigned")
+        self.hdfs_resource_manager = topology_properties.db_nodes[resource_manager[0]].interface
 
     def writeJMXCollectionConfig(self, node: Node) -> None:
         # TODO: Implement this?
@@ -111,8 +116,9 @@ class HBaseApplication(AbstractApplication):
             node,
             {
                 "@@AUX_SERVICES@@": "mapreduce_shuffle",
-                # TODO: Set this and any other properties necessary for all HDFS related configs
-                "@@WEB_PROXY_ADDRESS@@": "<TODO>"
+                "@@RESOURCE_MANAGER_HOSTNAME@@": self.hdfs_resource_manager.addresses[0].address,
+                "@@NODE_MANAGER_HOSTNAME@@": node.getInterfaceAddress(),
+                "@@YARN_TIMELINE_SERVICE_HOSTNAME@@": self.hdfs_resource_manager.addresses[0].address
             },
             f"{HADOOP_CONF}/yarn-site.xml"
         )
@@ -124,9 +130,18 @@ class HBaseApplication(AbstractApplication):
         sed(
             node,
             {
-                "@@DFS_REPLICATION@@": "1"
+                "@@DFS_REPLICATION@@": "1",
+                "@@DFS_NAMENODE_RPC_ADDRESS@@": self.hdfs_name_node.addresses[0].address,
+                "@@DFS_NAMENODE_SERVICE_RPC_ADDRESS@@": self.hdfs_name_node.addresses[0].address
             },
             f"{HADOOP_CONF}/hdfs-site.xml"
+        )
+        sed(
+            node,
+            {
+                "@@HDFS_HOSTNAME@@": node.getInterfaceAddress()
+            },
+            f"{HADOOP_CONF}/core-site.xml"
         )
         catToFile(
             node,
