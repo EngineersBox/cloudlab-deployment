@@ -139,7 +139,7 @@ class HBaseApplication(AbstractApplication):
         sed(
             node,
             {
-                "@@HDFS_HOSTNAME@@": node.getInterfaceAddress()
+                "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
             },
             f"{HADOOP_CONF}/core-site.xml"
         )
