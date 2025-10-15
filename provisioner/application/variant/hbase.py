@@ -76,7 +76,7 @@ class HBaseApplication(AbstractApplication):
                 "@@ZK_NODE_IPS@@": zk_ips_prop,
                 "@@CLIENT_MAX_TOTAL_TASKS@@": f"{self.client_max_total_tasks}",
                 "@@CLIENT_MAX_PER_SERVER_TASKS@@": f"{self.client_max_perserver_tasks}",
-                "@@CLIENT_MAS_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}",
+                "@@CLIENT_MAX_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}",
                 "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
             },
             f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
@@ -184,7 +184,8 @@ class HBaseApplication(AbstractApplication):
             {
                 "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
                 "INVOKE_INIT": True,
-                "NODE_ROLES": node.roles
+                "NODE_ROLES": node.roles,
+                "HBASE_NO_REDIRECT_LOG": True
             }
         )
 
