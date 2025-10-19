@@ -186,7 +186,10 @@ class HBaseApplication(AbstractApplication):
                 "INVOKE_INIT": True,
                 "NODE_ROLES": node.roles,
                 "HBASE_NO_REDIRECT_LOG": True
-            }
+            },
+            [
+                ".*hbase.*"
+            ]
         )
 
 class HBaseParameters(ParameterGroup):

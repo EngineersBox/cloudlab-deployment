@@ -8,7 +8,7 @@ class HBaseCollectionConfig(CollectionConfiguration):
 
     @classmethod
     def writeJMLCollectionConfig(cls,
-                                 npode: Node,
+                                 node: Node,
                                  otel_topology_properties: TopologyProperties,
                                  otel_collection_interval: int,
                                  otel_container_local_path) -> None:

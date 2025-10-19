@@ -20,7 +20,7 @@ declare -A JMX_PATHS
 declare -A JMX_IPS
 """
         i = 0
-        for cluster_node in otel_topology_properties.db_nodes:
+        for cluster_node in otel_topology_properties.db_nodes.values():
             node_addr = cluster_node.getInterfaceAddress()
             jmx_config = f"""# OTEL JMX Collection Config
 otel.metrics.exporter=otlp
@@ -51,7 +51,7 @@ otel.resource.attributes=application={ApplicationVariant.CASSANDRA},node={cluste
                                         node: Node,
                                         otel_topology_properties: TopologyProperties) -> str:
         all_ips: list[str] = []
-        for cluster_node in otel_topology_properties.db_nodes:
+        for cluster_node in otel_topology_properties.db_nodes.values():
             all_ips.append(cluster_node.getInterfaceAddress())
         return f"""
         hosts={",".join(all_ips)}

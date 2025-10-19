@@ -192,7 +192,10 @@ default={default_dc}:{default_rack}
                 "CASSANDRA_BROADCAST_ADDRESS": node.getInterfaceAddress(),
                 "CASSANDRA_BROADCAST_RPC_ADDRESS": node.getInterfaceAddress(),
                 "CASSANDRA_SEEDS": ",".join([f"{seed.addresses[0].address}:7000" for seed in self.seeds.values()])
-            }
+            },
+            [
+                ".*cassandra.*"
+            ]
         )
 
 class CassandraParameters(ParameterGroup):

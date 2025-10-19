@@ -118,7 +118,8 @@ class AbstractApplication(ABC):
 
     def bootstrapNode(self,
                       node: Node,
-                      properties: dict[str, Any]) -> None:
+                      properties: dict[str, Any],
+                      process_regexes: list[str]) -> None:
         collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
         # Ensure the collector exports data for enabled features
         for feat in self.collector_features:
@@ -144,10 +145,12 @@ class AbstractApplication(ABC):
             properties
         )
         # Replace template var for pushing logs
+        regexes = ",".join([f"\"{regex}\"" for regex in process_regexes])
         sed(
             node,
             {
-                "@@COLLECTOR_ADDRESS@@": collector_address
+                "@@COLLECTOR_ADDRESS@@": collector_address,
+                "@@PROCESS_REGEXES@@": regexes 
             },
             f"{LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         )

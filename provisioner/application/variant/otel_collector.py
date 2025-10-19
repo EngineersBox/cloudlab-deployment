@@ -91,6 +91,9 @@ class OTELCollector(AbstractApplication):
                 "INVOKE_INIT": True,
                 "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
                 "NODE_IPS": node_ips
-            }
+            },
+            [
+                ".*opentelemetry.*"
+            ]
         )
         self.createYCSBBaseProfile(node)
