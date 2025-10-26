@@ -14,7 +14,7 @@ from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile
+from provisioner.utils import catToFile, chmod, mkdir
 import geni.portal as portal
 
 OTEL_JMX_COLLECTION_INTERVAL_MS = 500
@@ -71,6 +71,12 @@ class OTELCollector(AbstractApplication):
 
     def writeJMXCollectionConfig(self, node: Node) -> None:
         return super().writeJMXCollectionConfig(node)
+
+    def createDirectories(self, node: Node) -> None:
+        dirs = ["hostmetrics", "kernel"]
+        for dir in dirs:
+            mkdir(node, f"/var/log/otel/{dir}", create_parent=True)
+        chmod(node, f"/var/log/otel", 0o766, recursive=True)
 
     def nodeInstallApplication(self, node: Node) -> None:
         # TODO: Need to update the collector config with 
