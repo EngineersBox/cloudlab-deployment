@@ -8,7 +8,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseAppType, HBaseNodeRole
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, chmod, chown, mkdir, sed
+from provisioner.utils import catToFile, chmod, chown, cp, mkdir, sed
 
 HADOOP_HOME: str = f"{VAR_LIB_PATH}/hadoop"
 HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
@@ -154,7 +154,7 @@ class HBaseApplication(AbstractApplication):
     def installHDFS(self, node: Node) -> None:
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
-            command=f"{LOCAL_PATH}/scripts/install-hdfs.sh {self.hadoop_version}"
+            command=f"{LOCAL_PATH}/scripts/hbase/install-hdfs.sh {self.hadoop_version}"
         ))
 
     def createDirectories(self, node: Node) -> None:
@@ -185,7 +185,10 @@ class HBaseApplication(AbstractApplication):
                 "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
                 "INVOKE_INIT": True,
                 "NODE_ROLES": node.roles,
-                "HBASE_NO_REDIRECT_LOG": True
+                "HBASE_NO_REDIRECT_LOG": True,
+                # TODO: Change the install path of hbase and mount from host
+                #       to be /var/lib/cluster within the container/image
+                "KAIROS_LOGS_DIR": "/var/lib/hbase/logs"
             },
             [
                 ".*hbase.*"

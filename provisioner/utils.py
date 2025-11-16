@@ -29,6 +29,12 @@ def mkdir(node: Node, path: str, create_parent: bool = True) -> None:
         command=f"sudo mkdir {'-p ' if create_parent else ''} {path}"
     ))
 
+def cp(node: Node, source_path: str, dest_path: str) -> None:
+    node.instance.addService(pg.Execute(
+        shell="/bin/bash",
+        command=f"sudo cp {source_path} {dest_path}"
+    ))
+
 def ifaceForIp(ip: str) -> str:
     return f"sudo ifconfig | grep -B1 {ip} | grep -o '^\\w*'"
 
