@@ -47,14 +47,17 @@ class HBaseTopologyAssigner(TopologyAssigner):
                                      num_nodes: int,
                                      topology: ProvisioningTopology,
                                      inverse_topology: InverseProvisioningTopology) -> None:
-        zk_count = 3
-        if (num_nodes < 15):
-            zk_count = min(3, num_nodes)
+        
+        zk_count = 1
+        if (num_nodes < 3):
+            zk_count = 1
+        elif (num_nodes < 15):
+            zk_count = 3
         elif (num_nodes < 21):
             zk_count = 5
         else:
             zk_count = 7
-        for (node, (_roles, dc, rack)) in takeSpread(list(inverse_topology.items()), zk_count):
+        for (node, (_, dc, rack)) in takeSpread(list(inverse_topology.items()), zk_count):
             addOrUpdateNode(
                 topology,
                 inverse_topology,
@@ -110,11 +113,10 @@ class HBaseTopologyAssigner(TopologyAssigner):
                     )
                     node_id += 1
         cls.determineHBaseZookeeperNodes(
-            node_id + 1,
+            node_id,
             topology,
             inverse_topology
         )
-        node_id += 1
         cls.createHBaseMasterNode(node_id, topology, inverse_topology)
         cls.createHDFSAuxiliaryNode(node_id, topology, inverse_topology)
         return (topology, inverse_topology)

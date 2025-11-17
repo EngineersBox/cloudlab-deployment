@@ -185,7 +185,7 @@ class HBaseApplication(AbstractApplication):
                 "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
                 "INVOKE_INIT": True,
                 "NODE_ROLES": node.roles,
-                "HBASE_NO_REDIRECT_LOG": True,
+                # "HBASE_NO_REDIRECT_LOG": True,
                 # TODO: Change the install path of hbase and mount from host
                 #       to be /var/lib/cluster within the container/image
                 "KAIROS_LOGS_DIR": "/var/lib/hbase/logs"

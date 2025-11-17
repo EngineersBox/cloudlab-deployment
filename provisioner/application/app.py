@@ -120,7 +120,9 @@ class AbstractApplication(ABC):
                       node: Node,
                       properties: dict[str, Any],
                       process_regexes: list[str]) -> None:
-        collector_address: str = self.topology_properties.collectorInterface.addresses[0].address
+        collector_address: str = ""
+        if self.topology_properties.collectorInterface != None:
+            collector_address = self.topology_properties.collectorInterface.addresses[0].address
         # Ensure the collector exports data for enabled features
         for feat in self.collector_features:
             properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"

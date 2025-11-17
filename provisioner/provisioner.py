@@ -155,7 +155,7 @@ class Provisioner:
 
     def bindNodesViaLAN(self,
                         cluster: Cluster,
-                        collector: Collector) -> pg.LAN:
+                        collector: Optional[Collector]) -> pg.LAN:
         print("Constructing VLAN and binding node interfaces")
         lan: pg.LAN = pg.LAN("LAN")
         for node in cluster.nodesGenerator():
@@ -165,30 +165,31 @@ class Provisioner:
                 )
             );
             lan.addInterface(node.interface)
-        lan.addInterface(collector.node.interface)
-        print(
-            "Binding allocator interface {} to LAN".format(
-                collector.node.interface.addresses[0].address
+        if collector != None:
+            lan.addInterface(collector.node.interface)
+            print(
+                "Binding allocator interface {} to LAN".format(
+                    collector.node.interface.addresses[0].address
+                )
             )
-        )
         if (self.params.vlan_type != None):
             lan.connectSharedVlan(self.params.vlan_type)
         return lan
 
-    def provision(self) -> Tuple[Cluster, Collector]:
+    def provision(self) -> Tuple[Cluster, Optional[Collector]]:
         # Pre-allocate interface to share across nodes in LAN
         NetworkManager.nextPhysicalInterface()
         cluster: Cluster = self.clusterProvisionHardware()
-        collector: Collector = self.collectorProvisionHardware()
+        collector: Optional[Collector] = None #self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
         self.request.addResource(lan)
         db_nodes = {}
         for node in cluster.nodesGenerator():
             db_nodes[node.id] = node
         topology_properties: TopologyProperties = TopologyProperties(
-            collector.node.interface,
+            collector.node.interface if collector != None else None,
             db_nodes
         )
         self.bootstrapDB(cluster, topology_properties)
-        self.bootstrapCollector(cluster, collector, topology_properties)
+        # self.bootstrapCollector(cluster, collector, topology_properties)
         return cluster, collector
