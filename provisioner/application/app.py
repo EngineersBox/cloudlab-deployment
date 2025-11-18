@@ -11,6 +11,7 @@ from provisioner.topology import TopologyProperties
 from provisioner.utils import catToFile, sed
 import geni.portal as portal
 from geni.rspec import pg
+import string, random
 
 class ApplicationVariant(Enum):
     CASSANDRA = "cassandra", True
@@ -75,11 +76,12 @@ class AbstractApplication(ABC):
                 path=path
             ))
         else:
+            archive_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
             commands=[
-                f"sudo wget {url} -O archive.tar.gz",
+                f"sudo wget {url} -O {archive_name}.tar.gz",
                 f"sudo mkdir -p {path}",
-                f"sudo tar -xzf archive.tar.gz --directory={path}",
-                f"sudo rm archive.tar.gz"
+                f"sudo tar -xzf {archive_name}.tar.gz --directory={path}",
+                f"sudo rm {archive_name}.tar.gz"
             ]
             for command in commands:
                 node.instance.addService(pg.Execute(
