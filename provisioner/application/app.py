@@ -161,7 +161,7 @@ class AbstractApplication(ABC):
         # Unpack kairos libraries
         self.unpackTar(
             node,
-            url="https://github.com/EngineersBox/Kairos/releases/download/v0.1.0/kairos.tar.gz",
+            url="https://github.com/EngineersBox/database-benchmarking/releases/download/kairos-0.1.0/kairos.tar.gz",
             path="/var/lib/kairos",
             use_pg_install=False
         )
