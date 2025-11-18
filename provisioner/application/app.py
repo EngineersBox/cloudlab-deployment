@@ -76,10 +76,10 @@ class AbstractApplication(ABC):
             ))
         else:
             commands=[
-                f"sudo wget {url}",
+                f"sudo wget {url} -O archive.tar.gz",
                 f"sudo mkdir -p {path}",
-                f"sudo tar -xzf {self.variant()}.tar.gz --directory={path}",
-                f"sudo rm {self.variant()}.tar.gz"
+                f"sudo tar -xzf archive.tar.gz --directory={path}",
+                f"sudo rm archive.tar.gz"
             ]
             for command in commands:
                 node.instance.addService(pg.Execute(
@@ -160,7 +160,8 @@ class AbstractApplication(ABC):
         self.unpackTar(
             node,
             url="https://github.com/EngineersBox/Kairos/releases/download/v0.1.0/kairos.tar.gz",
-            path="/var/lib/kairos"
+            path="/var/lib/kairos",
+            use_pg_install=False
         )
         # Login to docker registry
         node.instance.addService(pg.Execute(
