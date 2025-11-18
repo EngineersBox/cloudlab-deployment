@@ -156,6 +156,12 @@ class AbstractApplication(ABC):
             },
             f"{LOCAL_PATH}/config/otel/otel-instance-config.yaml"
         )
+        # Unpack kairos libraries
+        self.unpackTar(
+            node,
+            url="https://github.com/EngineersBox/Kairos/releases/download/v0.1.0/kairos.tar.gz",
+            path="/var/lib/kairos"
+        )
         # Login to docker registry
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
