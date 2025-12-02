@@ -51,6 +51,7 @@ class Provisioner:
     def nodeProvision(self, name: str, roles: list[str]) -> Node:
         self.__node_idx += 1
         node_vm = pg.RawPC(name)
+        node_vm.hardware_type = self.params.node_size
         node_vm.disk_image = self.params.node_disk_image
         self.request.addResource(node_vm)
         iface: pg.Interface = node_vm.addInterface(NetworkManager.CURRENT_PHYSICAL_INTERFACE)
@@ -180,7 +181,7 @@ class Provisioner:
         # Pre-allocate interface to share across nodes in LAN
         NetworkManager.nextPhysicalInterface()
         cluster: Cluster = self.clusterProvisionHardware()
-        collector: Optional[Collector] = self.collectorProvisionHardware()
+        collector: Optional[Collector] = None # self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
         self.request.addResource(lan)
         db_nodes = {}
@@ -191,5 +192,5 @@ class Provisioner:
             db_nodes
         )
         self.bootstrapDB(cluster, topology_properties)
-        self.bootstrapCollector(cluster, collector, topology_properties)
+        # self.bootstrapCollector(cluster, collector, topology_properties)
         return cluster, collector

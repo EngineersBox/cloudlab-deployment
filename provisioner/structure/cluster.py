@@ -57,9 +57,9 @@ class ClusterParameterGroup(ParameterGroup):
                 ),
                 Parameter(
                     name="node_size",
-                    description="Instance to use for the nodes (Note: 'raw' implies autoselect)",
-                    typ=portal.ParameterType.NODETYPE,
-                    defaultValue="raw"
+                    description="Instance type to use for the nodes (Absent implies autoselect)",
+                    typ=portal.ParameterType.STRING,
+                    defaultValue=None
                 ),
                 Parameter(
                     name="node_disk_image",
