@@ -140,6 +140,7 @@ class AbstractApplication(ABC):
             properties["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://{collector_address}:4318"
             properties["OTEL_SERVICES_NAME"] = f"{self.variant()}-{node.id}"
             properties["OTEL_RESOURCE_ATTRIBUTES"] = f"application={self.variant()},node={node.id}"
+        properties["LD_LIBRARY_PATH"] = "/var/lib/kairos/lib:$LD_LIBRARY_PATH"
         self._writeEnvFile(
             node,
             properties
@@ -161,7 +162,7 @@ class AbstractApplication(ABC):
         # Unpack kairos libraries
         self.unpackTar(
             node,
-            url="https://github.com/EngineersBox/database-benchmarking/releases/download/kairos-0.1.0/kairos.tar.gz",
+            url="https://github.com/EngineersBox/database-benchmarking/releases/download/kairos-0.1.0/kairos-0.1.0-x86_64-unknown-linux-gnu.tar.gz",
             path="/var/lib/kairos",
             use_pg_install=False
         )
