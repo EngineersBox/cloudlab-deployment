@@ -140,7 +140,7 @@ class AbstractApplication(ABC):
             properties["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"http://{collector_address}:4318"
             properties["OTEL_SERVICES_NAME"] = f"{self.variant()}-{node.id}"
             properties["OTEL_RESOURCE_ATTRIBUTES"] = f"application={self.variant()},node={node.id}"
-        properties["LD_LIBRARY_PATH"] = "/var/lib/kairos/lib:$LD_LIBRARY_PATH"
+        properties["LD_LIBRARY_PATH"] = "/var/lib/kairos/lib:\\$LD_LIBRARY_PATH"
         self._writeEnvFile(
             node,
             properties

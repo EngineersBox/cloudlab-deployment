@@ -180,7 +180,7 @@ class Provisioner:
         # Pre-allocate interface to share across nodes in LAN
         NetworkManager.nextPhysicalInterface()
         cluster: Cluster = self.clusterProvisionHardware()
-        collector: Optional[Collector] = None #self.collectorProvisionHardware()
+        collector: Optional[Collector] = self.collectorProvisionHardware()
         lan: pg.LAN = self.bindNodesViaLAN(cluster, collector)
         self.request.addResource(lan)
         db_nodes = {}
@@ -191,5 +191,5 @@ class Provisioner:
             db_nodes
         )
         self.bootstrapDB(cluster, topology_properties)
-        # self.bootstrapCollector(cluster, collector, topology_properties)
+        self.bootstrapCollector(cluster, collector, topology_properties)
         return cluster, collector
