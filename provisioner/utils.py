@@ -29,10 +29,10 @@ def mkdir(node: Node, path: str, create_parent: bool = True) -> None:
         command=f"sudo mkdir {'-p ' if create_parent else ''} {path}"
     ))
 
-def cp(node: Node, source_path: str, dest_path: str) -> None:
+def cp(node: Node, source_path: str, dest_path: str, recursive: bool = False) -> None:
     node.instance.addService(pg.Execute(
         shell="/bin/bash",
-        command=f"sudo cp {source_path} {dest_path}"
+        command=f"sudo cp {'-r ' if recursive else ''}{source_path} {dest_path}"
     ))
 
 def ifaceForIp(ip: str) -> str:
