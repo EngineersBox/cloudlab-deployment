@@ -34,7 +34,7 @@ class CollectorParameterGroup(ParameterGroup):
                     name="collector_version",
                     description="Version of the OTEL collector",
                     typ=portal.ParameterType.STRING,
-                    required=True
+                    defaultValue="2.6"
                 ),
                 Parameter(
                     name="ycsb_version",
