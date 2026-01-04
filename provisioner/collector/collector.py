@@ -37,6 +37,12 @@ class CollectorParameterGroup(ParameterGroup):
                     defaultValue="2.6"
                 ),
                 Parameter(
+                    name="ycsb_repository",
+                    description="YCSB repository/fork to clone for benchmarking",
+                    typ=portal.ParameterType.STRING,
+                    defaultValue="https://github.com/EngineersBox/YCSB.git"
+                ),
+                Parameter(
                     name="ycsb_commit_like",
                     description="Branch/tag/commit of the YCSB benchmarking suite repository",
                     typ=portal.ParameterType.STRING,

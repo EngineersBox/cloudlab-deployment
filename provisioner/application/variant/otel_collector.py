@@ -30,6 +30,7 @@ COLLECTION_CONFIGS: dict[ApplicationVariant, type[CollectionConfiguration]] = {
 }
 
 class OTELCollector(AbstractApplication):
+    ycsb_repository: str
     ycsb_commit_like: str
     cluster_application: str
 
@@ -49,6 +50,7 @@ class OTELCollector(AbstractApplication):
             params,
             topology_properties
         )
+        self.ycsb_repository = params.ycsb_repository
         self.ycsb_commit_like = params.ycsb_commit_like
         self.cluster_application = params.application
 
@@ -89,7 +91,7 @@ class OTELCollector(AbstractApplication):
         self.unpackTar(node, use_pg_install=False)
         self.cloneRepo(
             node,
-            "https://github.com/brianfrankcooper/YCSB.git",
+            self.ycsb_repository,
             f"{LOCAL_PATH}/ycsb",
             self.ycsb_commit_like
         )
