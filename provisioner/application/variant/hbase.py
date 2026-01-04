@@ -151,6 +151,11 @@ class HBaseApplication(AbstractApplication):
         self.writeHDFSYarnConfiguraton(node)
         self.writeHDFSMapReduceConfiguration(node)
 
+    def writeCoreConfiguration(self, node: Node) -> None:
+        self.writeHBaseSiteProperties(node)
+        self.writeRegionServersConfig(node)
+        self.writeBackupMastersConfig(node)
+
     def installHDFS(self, node: Node) -> None:
         node.instance.addService(pg.Execute(
             shell="/bin/bash",
@@ -169,9 +174,7 @@ class HBaseApplication(AbstractApplication):
         self.createDirectories(node)
         self.unpackTar(node)
         self.installHDFS(node)
-        self.writeHBaseSiteProperties(node)
-        self.writeRegionServersConfig(node)
-        self.writeBackupMastersConfig(node)
+        self.writeCoreConfiguration(node)
         for role in node.roles:
             hbase_role = HBaseNodeRole[role.upper()]
             app_type = hbase_role.appType()

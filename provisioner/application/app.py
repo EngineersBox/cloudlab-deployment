@@ -8,7 +8,7 @@ from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, mkdir, sed
+from provisioner.utils import catToFile, chown, mkdir, sed
 import geni.portal as portal
 from geni.rspec import pg
 import string, random
@@ -41,6 +41,7 @@ class AbstractApplication(ABC):
     docker_config: DockerConfig
     cluster: Cluster
     collector_features: set[OTELFeature]
+    params: portal.Namespace
 
     @abstractmethod
     def __init__(self, version: str, docker_config: DockerConfig):
@@ -60,6 +61,7 @@ class AbstractApplication(ABC):
         self.topology_properties = topology_properties
         self.cluster = cluster
         self.collector_features = params.collector_features
+        self.params = params
 
     def cloneRepo(self,
                   node: Node,
@@ -70,6 +72,12 @@ class AbstractApplication(ABC):
             node,
             clone_path,
             create_parent=True
+        )
+        chown(
+            node,
+            clone_path,
+            USERNAME,
+            GROUPNAME
         )
         node.instance.addService(pg.Execute(
             shell="/bin/bash",

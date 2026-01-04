@@ -1,5 +1,4 @@
-from provisioner.application import app
-from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
+from provisioner.application.app import AbstractApplication, ApplicationVariant, GROUPNAME, LOCAL_PATH, USERNAME
 from provisioner.application.variant.cassandra import CassandraApplication
 from provisioner.application.variant.scylla import ScyllaApplication
 from provisioner.application.variant.mongodb import MongoDBApplication
@@ -15,7 +14,7 @@ from provisioner.docker import DockerConfig
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile, chmod, mkdir
+from provisioner.utils import catToFile, chmod, chown, mkdir
 import geni.portal as portal
 
 OTEL_JMX_COLLECTION_INTERVAL_MS = 500
@@ -66,6 +65,7 @@ class OTELCollector(AbstractApplication):
         return COLLECTION_CONFIGS[app_variant].createBenchmarkingProperties(
             node,
             self.cluster,
+            self.params,
             self.topology_properties
         )
 
@@ -81,13 +81,15 @@ class OTELCollector(AbstractApplication):
     def createDirectories(self, node: Node) -> None:
         dirs = ["hostmetrics", "kernel"]
         for dir in dirs:
-            mkdir(node, f"/var/log/otel/{dir}", create_parent=True)
-        chmod(node, f"/var/log/otel", 0o766, recursive=True)
+            mkdir(node, f"/var/lib/cluster/{dir}", True)
+        chmod(node, f"/var/lib/cluster", 0o777, recursive=True)
+        chown(node, f"/var/lib/cluster", USERNAME, GROUPNAME, recursive=True)
 
     def nodeInstallApplication(self, node: Node) -> None:
         # TODO: Need to update the collector config with 
         #       JMX consumers for each of the cluster nodes
         super().nodeInstallApplication(node)
+        self.createDirectories(node)
         self.unpackTar(node, use_pg_install=False)
         self.cloneRepo(
             node,

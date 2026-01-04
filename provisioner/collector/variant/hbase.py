@@ -1,11 +1,14 @@
+from provisioner.application.variant.hbase import HBaseApplication
 from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseNodeRole
 from provisioner.provisioner import TopologyProperties
-from provisioner.utils import catToFile, chmod, sed
-from provisioner.application.app import ApplicationVariant, LOCAL_PATH
+from provisioner.docker import DockerConfig
+# from provisioner.utils import catToFile, chmod, sed
+# from provisioner.application.app import ApplicationVariant, LOCAL_PATH
 from provisioner.collector.collection_config import CollectionConfiguration
+import geni.portal as portal
 
 HBASE_ROLE_PORT_MAPPINGS: dict[HBaseNodeRole, list[tuple[str, int]]] = {
     HBaseNodeRole.HBASE_MASTER: [("otel_master.properties", 0)],
@@ -82,7 +85,22 @@ class HBaseCollectionConfig(CollectionConfiguration):
     def createBenchmarkingProperties(cls,
                                     node: Node,
                                     cluster: Cluster,
+                                    params: portal.Namespace,
                                     topology_properties: TopologyProperties) -> dict[str, str]:
+        hbase_app = HBaseApplication(
+            params.application_version,
+            DockerConfig(
+                username="",
+                token=""
+            )
+        )
+        hbase_app.preConfigureClusterLevelProperties(
+            cluster,
+            params,
+            topology_properties
+        )
+        hbase_app.writeCoreConfiguration(node)
+        hbase_app.writeHBaseConfiguration(node, HBaseNodeRole.HBASE_MASTER)
         region_server_count = len(findNodesWithRole(cluster.inverse_topology, str(HBaseNodeRole.HBASE_REGION_SERVER)))
         return {
             "region_server_count": f"{region_server_count}"
