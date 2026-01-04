@@ -49,7 +49,7 @@ class HBaseTopologyAssigner(TopologyAssigner):
                                      inverse_topology: InverseProvisioningTopology) -> None:
         
         zk_count = 1
-        if (num_nodes < 3):
+        if (num_nodes <= 3):
             zk_count = 1
         elif (num_nodes < 15):
             zk_count = 3

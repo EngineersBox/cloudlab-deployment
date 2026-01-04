@@ -62,14 +62,14 @@ class HBaseApplication(AbstractApplication):
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
         zk_nodes = [
-            self.topology_properties.db_nodes[node].interface
+            self.topology_properties.db_nodes[node].getInterfaceAddress()
             for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_ZOOKEEPER))
         ]
-        zk_ips_prop: str = ",".join([f"\"{iface.addresses[0].address}\"" for iface in zk_nodes])
+        zk_ips_prop: str = ",".join([f"\"{iface}\"" for iface in zk_nodes])
         sed(
             node,
             {
-                "@@ZK_NODE_IPS@@": zk_ips_prop,
+                "@@ZOOKEEPER_NODE_IPS@@": zk_ips_prop,
                 "@@CLIENT_MAX_TOTAL_TASKS@@": f"{self.client_max_total_tasks}",
                 "@@CLIENT_MAX_PER_SERVER_TASKS@@": f"{self.client_max_perserver_tasks}",
                 "@@CLIENT_MAX_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}",
