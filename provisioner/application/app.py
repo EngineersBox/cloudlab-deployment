@@ -8,7 +8,7 @@ from provisioner.structure.cluster import Cluster
 from provisioner.parameters import ParameterGroup, Parameter
 from provisioner.structure.node import Node
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, sed
+from provisioner.utils import catToFile, mkdir, sed
 import geni.portal as portal
 from geni.rspec import pg
 import string, random
@@ -39,7 +39,7 @@ GROUPNAME = "cluster"
 class AbstractApplication(ABC):
     version: str
     docker_config: DockerConfig
-    cluster = Cluster
+    cluster: Cluster
     collector_features: set[OTELFeature]
 
     @abstractmethod
@@ -60,6 +60,27 @@ class AbstractApplication(ABC):
         self.topology_properties = topology_properties
         self.cluster = cluster
         self.collector_features = params.collector_features
+
+    def cloneRepo(self,
+                  node: Node,
+                  repo_url: str,
+                  clone_path: str,
+                  checkout_commit_like: Optional[str] = None) -> None:
+        mkdir(
+            node,
+            clone_path,
+            create_parent=True
+        )
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"git clone {repo_url} {clone_path}"
+        ))
+        if not checkout_commit_like:
+            return
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"cd {clone_path} && git checkout {checkout_commit_like}"
+        ))
 
     def unpackTar(self,
                   node: Node,
@@ -188,10 +209,6 @@ class AbstractApplication(ABC):
     @abstractmethod
     def nodeInstallApplication(self, node: Node) -> None:
         self.createClusterUser(node)
-
-    @abstractmethod
-    def writeJMXCollectionConfig(self, node: Node) -> None:
-        pass
 
 class ApplicationParameterGroup(ParameterGroup):
 

@@ -1,3 +1,4 @@
+from provisioner.application import app
 from provisioner.application.app import AbstractApplication, ApplicationVariant, LOCAL_PATH
 from provisioner.application.variant.cassandra import CassandraApplication
 from provisioner.application.variant.scylla import ScyllaApplication
@@ -29,7 +30,7 @@ COLLECTION_CONFIGS: dict[ApplicationVariant, type[CollectionConfiguration]] = {
 }
 
 class OTELCollector(AbstractApplication):
-    ycsb_version: str
+    ycsb_commit_like: str
     cluster_application: str
 
     def __init__(self, version: str, docker_config: DockerConfig):
@@ -48,17 +49,23 @@ class OTELCollector(AbstractApplication):
             params,
             topology_properties
         )
-        self.ycsb_version = params.ycsb_version
+        self.ycsb_commit_like = params.ycsb_commit_like
         self.cluster_application = params.application
 
-    def createYCSBBaseProfile(self, node: Node) -> None:
-        base_profile_path=f"{LOCAL_PATH}/ycsb-{self.ycsb_version}/base_profile.dat"
+    def writeYCSBBenchmarkingConfiguration(self, node: Node) -> dict[str, str]:
+        base_profile_path=f"{LOCAL_PATH}/ycsb/base_profile.dat"
         app_variant: ApplicationVariant = ApplicationVariant(ApplicationVariant._member_map_[str(self.cluster_application).upper()])
         profile_content = COLLECTION_CONFIGS[app_variant].createYCSBBaseProfileProperties(
             node,
+            self.cluster,
             self.topology_properties
         )
         catToFile(node, base_profile_path, profile_content)
+        return COLLECTION_CONFIGS[app_variant].createBenchmarkingProperties(
+            node,
+            self.cluster,
+            self.topology_properties
+        )
 
     def writeTargetAppCollectionConfigs(self, node: Node) -> None:
         app_variant: ApplicationVariant = ApplicationVariant(ApplicationVariant._member_map_[str(self.cluster_application).upper()])
@@ -68,9 +75,6 @@ class OTELCollector(AbstractApplication):
             OTEL_JMX_COLLECTION_INTERVAL_MS,
             OTEL_CONTAINER_LOCAL_PATH
         )
-
-    def writeJMXCollectionConfig(self, node: Node) -> None:
-        return super().writeJMXCollectionConfig(node)
 
     def createDirectories(self, node: Node) -> None:
         dirs = ["hostmetrics", "kernel"]
@@ -83,23 +87,26 @@ class OTELCollector(AbstractApplication):
         #       JMX consumers for each of the cluster nodes
         super().nodeInstallApplication(node)
         self.unpackTar(node, use_pg_install=False)
-        self.unpackTar(
+        self.cloneRepo(
             node,
-            f"https://github.com/brianfrankcooper/YCSB/releases/download/{self.ycsb_version}/ycsb-{self.ycsb_version}.tar.gz"
+            "https://github.com/brianfrankcooper/YCSB.git",
+            f"{LOCAL_PATH}/ycsb",
+            self.ycsb_commit_like
         )
         self.writeTargetAppCollectionConfigs(node)
         node_ips = []
         for cluster_node in self.topology_properties.db_nodes.values():
             node_ips.append(cluster_node.getInterfaceAddress())
+        properties = {
+            "INVOKE_INIT": True,
+            "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
+            "NODE_IPS": node_ips
+        }
+        properties.update(self.writeYCSBBenchmarkingConfiguration(node))
         self.bootstrapNode(
             node,
-            {
-                "INVOKE_INIT": True,
-                "CLUSTER_APPLICATION_VARIANT": self.cluster_application,
-                "NODE_IPS": node_ips
-            },
+            properties,
             [
                 ".*opentelemetry.*"
             ]
         )
-        self.createYCSBBaseProfile(node)

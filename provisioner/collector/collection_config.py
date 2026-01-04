@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
 
@@ -8,7 +9,7 @@ class CollectionConfiguration(ABC):
     @abstractmethod
     def writeJMXCollectionConfig(cls,
                                  node: Node,
-                                 otel_topology_properties: TopologyProperties,
+                                 topology_properties: TopologyProperties,
                                  otel_collection_interval: int,
                                  otel_container_local_path) -> None:
         pass
@@ -17,5 +18,14 @@ class CollectionConfiguration(ABC):
     @abstractmethod
     def createYCSBBaseProfileProperties(cls,
                                         node: Node,
-                                        otel_topology_properties: TopologyProperties) -> str:
+                                        cluster: Cluster,
+                                        topology_properties: TopologyProperties) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def createBenchmarkingProperties(cls,
+                                    node: Node,
+                                    cluster: Cluster,
+                                    topology_properties: TopologyProperties) -> dict[str, str]:
         pass

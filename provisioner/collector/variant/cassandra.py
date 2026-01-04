@@ -1,3 +1,4 @@
+from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
 from provisioner.utils import catToFile, chmod
@@ -9,7 +10,7 @@ class CassandraCollectionConfig(CollectionConfiguration):
     @classmethod
     def writeJMXCollectionConfig(cls,
                                  node: Node,
-                                 otel_topology_properties: TopologyProperties,
+                                 topology_properties: TopologyProperties,
                                  otel_collection_interval: int,
                                  otel_container_local_path) -> None:
         jmx_services = """#!/usr/bin/env bash
@@ -20,7 +21,7 @@ declare -A JMX_PATHS
 declare -A JMX_IPS
 """
         i = 0
-        for cluster_node in otel_topology_properties.db_nodes.values():
+        for cluster_node in topology_properties.db_nodes.values():
             node_addr = cluster_node.getInterfaceAddress()
             jmx_config = f"""# OTEL JMX Collection Config
 otel.metrics.exporter=otlp
@@ -42,6 +43,7 @@ otel.resource.attributes=application={ApplicationVariant.CASSANDRA},node={cluste
             
             catToFile(node, instance_path, jmx_config)
             chmod(node, instance_path, 0o777)
+
             i += 1
         catToFile(node, f"{LOCAL_PATH}/config/otel/jmx_services", jmx_services)
         chmod(node, f"{LOCAL_PATH}/config/otel/jmx_services", 0o777)
@@ -49,11 +51,19 @@ otel.resource.attributes=application={ApplicationVariant.CASSANDRA},node={cluste
     @classmethod
     def createYCSBBaseProfileProperties(cls,
                                         node: Node,
-                                        otel_topology_properties: TopologyProperties) -> str:
+                                        cluster: Cluster,
+                                        topology_properties: TopologyProperties) -> str:
         all_ips: list[str] = []
-        for cluster_node in otel_topology_properties.db_nodes.values():
+        for cluster_node in topology_properties.db_nodes.values():
             all_ips.append(cluster_node.getInterfaceAddress())
         return f"""
         hosts={",".join(all_ips)}
         port=9042
         """
+
+    @classmethod
+    def createBenchmarkingProperties(cls,
+                                    node: Node,
+                                    cluster: Cluster,
+                                    topology_properties: TopologyProperties) -> dict[str, str]:
+        return {}

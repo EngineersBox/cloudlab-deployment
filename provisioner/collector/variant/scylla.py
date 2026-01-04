@@ -1,3 +1,4 @@
+from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
 from provisioner.utils import catToFile, chmod
@@ -17,11 +18,19 @@ class ScyllaCollectionConfig(CollectionConfiguration):
     @classmethod
     def createYCSBBaseProfileProperties(cls,
                                         node: Node,
-                                        otel_topology_properties: TopologyProperties) -> str:
+                                        cluster: Cluster,
+                                        topology_properties: TopologyProperties) -> str:
         all_ips: list[str] = []
-        for cluster_node in otel_topology_properties.db_nodes:
+        for cluster_node in topology_properties.db_nodes.values():
             all_ips.append(cluster_node.getInterfaceAddress())
         return f"""
         scylla.hosts={",".join(all_ips)}
         port=9042
         """
+
+    @classmethod
+    def createBenchmarkingProperties(cls,
+                                    node: Node,
+                                    cluster: Cluster,
+                                    topology_properties: TopologyProperties) -> dict[str, str]:
+        return {}

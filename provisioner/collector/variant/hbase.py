@@ -1,4 +1,6 @@
+from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
+from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseNodeRole
 from provisioner.provisioner import TopologyProperties
 from provisioner.utils import catToFile, chmod, sed
@@ -16,7 +18,7 @@ class HBaseCollectionConfig(CollectionConfiguration):
     @classmethod
     def writeJMLCollectionConfig(cls,
                                  node: Node,
-                                 otel_topology_properties: TopologyProperties,
+                                 topology_properties: TopologyProperties,
                                  otel_collection_interval: int,
                                  otel_container_local_path: str) -> None:
         pass
@@ -72,5 +74,16 @@ class HBaseCollectionConfig(CollectionConfiguration):
     @classmethod
     def createYCSBBaseProfileProperties(cls,
                                         node: Node,
-                                        otel_topology_properties: TopologyProperties) -> str:
+                                        cluster: Cluster,
+                                        topology_properties: TopologyProperties) -> str:
         return ""
+
+    @classmethod
+    def createBenchmarkingProperties(cls,
+                                    node: Node,
+                                    cluster: Cluster,
+                                    topology_properties: TopologyProperties) -> dict[str, str]:
+        region_server_count = len(findNodesWithRole(cluster.inverse_topology, str(HBaseNodeRole.HBASE_REGION_SERVER)))
+        return {
+            "region_server_count": f"{region_server_count}"
+        }

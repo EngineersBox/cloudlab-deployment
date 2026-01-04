@@ -37,10 +37,10 @@ class CollectorParameterGroup(ParameterGroup):
                     defaultValue="2.6"
                 ),
                 Parameter(
-                    name="ycsb_version",
-                    description="Version of the YCSB benchmarking suite",
+                    name="ycsb_commit_like",
+                    description="Branch/tag/commit of the YCSB benchmarking suite repository",
                     typ=portal.ParameterType.STRING,
-                    defaultValue="0.17.0"
+                    defaultValue="master"
                 ),
                 Parameter(
                     name="collector_features",

@@ -7,7 +7,7 @@ class HBaseAppType(Enum):
     HBase = "hbase"
 
 class HBaseNodeRole(Enum):
-    HBASE_DATA = "hbase_data", HBaseAppType.HBase
+    HBASE_REGION_SERVER = "hbase_region_server", HBaseAppType.HBase
     HBASE_ZOOKEEPER = "hbase_zookeeper", HBaseAppType.HBase
     HBASE_MASTER = "hbase_master", HBaseAppType.HBase
     HBASE_BACKUP_MASTER = "hbase_backup_master", HBaseAppType.HBase
@@ -106,7 +106,7 @@ class HBaseTopologyAssigner(TopologyAssigner):
                         rack_name,
                         node_name,
                         [
-                            str(HBaseNodeRole.HBASE_DATA),
+                            str(HBaseNodeRole.HBASE_REGION_SERVER),
                             str(HBaseNodeRole.HDFS_DATA),
                             str(HBaseNodeRole.HDFS_NODE_MANAGER)
                         ]

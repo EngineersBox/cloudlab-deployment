@@ -1,3 +1,4 @@
+from provisioner.structure.cluster import Cluster
 from provisioner.structure.node import Node
 from provisioner.provisioner import TopologyProperties
 from provisioner.utils import catToFile, chmod
@@ -17,5 +18,13 @@ class MonogDBCollectionConfig(CollectionConfiguration):
     @classmethod
     def createYCSBBaseProfileProperties(cls,
                                         node: Node,
-                                        otel_topology_properties: TopologyProperties) -> str:
+                                        cluster: Cluster,
+                                        topology_properties: TopologyProperties) -> str:
         return ""
+
+    @classmethod
+    def createBenchmarkingProperties(cls,
+                                    node: Node,
+                                    cluster: Cluster,
+                                    topology_properties: TopologyProperties) -> dict[str, str]:
+        return {}

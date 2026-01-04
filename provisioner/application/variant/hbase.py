@@ -8,7 +8,7 @@ from provisioner.structure.node import Node
 from provisioner.structure.topology_assigner import findNodesWithRole
 from provisioner.structure.variant.hbase import HBaseAppType, HBaseNodeRole
 from provisioner.topology import TopologyProperties
-from provisioner.utils import catToFile, chmod, chown, cp, mkdir, sed
+from provisioner.utils import catToFile, chmod, chown, mkdir, sed
 
 HADOOP_HOME: str = f"{VAR_LIB_PATH}/hadoop"
 HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
@@ -60,10 +60,6 @@ class HBaseApplication(AbstractApplication):
             raise ValueError("No node has the HDFS_RESOURCE_MANAGER role assigned")
         self.hdfs_resource_manager = topology_properties.db_nodes[resource_manager[0]].interface
 
-    def writeJMXCollectionConfig(self, node: Node) -> None:
-        # TODO: Implement this?
-        return super().writeJMXCollectionConfig(node)
-
     def writeHBaseSiteProperties(self, node: Node) -> None:
         zk_nodes = [
             self.topology_properties.db_nodes[node].interface
@@ -83,7 +79,11 @@ class HBaseApplication(AbstractApplication):
         )
 
     def writeRegionServersConfig(self, node: Node) -> None:
-        config = "\n".join([iface.addresses[0].address for iface in self.all_ips])
+        region_servers = [
+            self.topology_properties.db_nodes[rs].getInterfaceAddress() 
+            for rs in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_REGION_SERVER))
+        ]
+        config = "\n".join(region_servers)
         catToFile(
             node,
             f"{LOCAL_PATH}/config/hbase/regionservers",
@@ -92,8 +92,8 @@ class HBaseApplication(AbstractApplication):
 
     def writeBackupMastersConfig(self, node: Node) -> None:
         backup_masters = [
-            self.topology_properties.db_nodes[node].interface 
-            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_BACKUP_MASTER))
+            self.topology_properties.db_nodes[bm].interface 
+            for bm in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_BACKUP_MASTER))
         ]
         config = "\n".join([iface.addresses[0].address for iface in backup_masters])
         catToFile(
