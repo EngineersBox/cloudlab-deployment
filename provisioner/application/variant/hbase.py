@@ -171,8 +171,8 @@ class HBaseApplication(AbstractApplication):
 
     def nodeInstallApplication(self, node: Node) -> None:
         super().nodeInstallApplication(node)
-        self.createDirectories(node)
         self.unpackTar(node)
+        self.createDirectories(node)
         self.installHDFS(node)
         self.writeCoreConfiguration(node)
         for role in node.roles:

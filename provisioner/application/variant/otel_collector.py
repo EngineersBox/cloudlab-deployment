@@ -89,8 +89,8 @@ class OTELCollector(AbstractApplication):
         # TODO: Need to update the collector config with 
         #       JMX consumers for each of the cluster nodes
         super().nodeInstallApplication(node)
-        self.createDirectories(node)
         self.unpackTar(node, use_pg_install=False)
+        self.createDirectories(node)
         self.cloneRepo(
             node,
             self.ycsb_repository,

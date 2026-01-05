@@ -73,22 +73,21 @@ class AbstractApplication(ABC):
             clone_path,
             create_parent=True
         )
+        node.instance.addService(pg.Execute(
+            shell="/bin/bash",
+            command=f"sudo git clone {repo_url} {clone_path}"
+        ))
+        if checkout_commit_like != None:
+            node.instance.addService(pg.Execute(
+                shell="/bin/bash",
+                command=f"cd {clone_path} && sudo git checkout {checkout_commit_like}"
+            ))
         chown(
             node,
             clone_path,
             USERNAME,
             GROUPNAME
         )
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"git clone {repo_url} {clone_path}"
-        ))
-        if not checkout_commit_like:
-            return
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"cd {clone_path} && git checkout {checkout_commit_like}"
-        ))
 
     def unpackTar(self,
                   node: Node,
@@ -203,10 +202,6 @@ class AbstractApplication(ABC):
             #       it's not the worst. I don't think it's worth setting
             #       up an external credentials provider to manage this.
             command=f"sudo su {USERNAME} -c 'docker login ghcr.io -u {self.docker_config.username} -p {self.docker_config.token}'",
-        ))
-        node.instance.addService(pg.Execute(
-            shell="/bin/bash",
-            command=f"{LOCAL_PATH}/init/setup.sh"
         ))
         # Install bootstrap systemd unit and run it
         node.instance.addService(pg.Execute(
