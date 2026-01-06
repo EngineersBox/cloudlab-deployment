@@ -22,7 +22,7 @@ class CassandraTopologyAssigner(TopologyAssigner):
                 rack_name = f"rack-{rack_id}"
                 rack = dc.setdefault(rack_name, {})
                 for _ in range(nodes_per_rack):
-                    node_name = f"node-{node_id}"
+                    node_name = f"D{dc_id}R{rack_id}N{node_id}"
                     roles = rack.setdefault(node_name, [str(CassandraNodeRole.Data)])
                     inverse_topology[node_name] = (roles, dc_name, rack_name)
                     node_id += 1
