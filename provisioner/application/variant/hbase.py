@@ -105,11 +105,33 @@ class HBaseApplication(AbstractApplication):
     def writeZookeeperConfig(self, node: Node) -> None:
         pass
 
+    def writeHBaseMasterHostname(self, node: Node) -> None:
+        sed(
+            node,
+            {
+                "@@MASTER_HOSTNAME@@": node.getInterfaceAddress()
+            },
+            f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
+        )
+
+    def writeHBaseRegionServerHostname(self, node: Node) -> None:
+        sed(
+            node,
+            {
+                "@@REGIONSERVER_HOSTNAME@@": node.getInterfaceAddress()
+            },
+            f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
+        )
+
     def writeHBaseConfiguration(self, node: Node, role: HBaseNodeRole) -> None:
         self.writeRegionServersConfig(node)
         self.writeBackupMastersConfig(node)
         if (role == HBaseNodeRole.HBASE_ZOOKEEPER):
             self.writeZookeeperConfig(node)
+        elif (role == HBaseNodeRole.HBASE_MASTER):
+            self.writeHBaseMasterHostname(node)
+        elif (role == HBaseNodeRole.HBASE_REGION_SERVER):
+            self.writeHBaseRegionServerHostname(node)
 
     def writeHDFSYarnConfiguraton(self, node: Node) -> None:
         sed(
