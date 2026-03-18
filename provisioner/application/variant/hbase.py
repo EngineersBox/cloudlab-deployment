@@ -14,11 +14,15 @@ HADOOP_HOME: str = f"{VAR_LIB_PATH}/hadoop"
 HADOOP_CONF: str = f"{HADOOP_HOME}/etc/hadoop"
 
 class HBaseApplication(AbstractApplication):
-    all_ips: list[pg.Interface] = []
-    hdfs_data_nodes: list[pg.Interface] = []
+    # all_ips: list[pg.Interface] = []
+    all_ips: list[str] = []
+    # hdfs_data_nodes: list[pg.Interface] = []
+    hdfs_data_nodes: list[str] = []
     hbase_master_node: str = ""
-    hdfs_name_node: pg.Interface = pg.Interface("", "")
-    hdfs_resource_manager: pg.Interface = pg.Interface("", "")
+    # hdfs_name_node: pg.Interface = pg.Interface("", "")
+    hdfs_name_node: str = ""
+    # hdfs_resource_manager: pg.Interface = pg.Interface("", "")
+    hdfs_resource_manager: str = ""
     client_max_total_tasks: int = 100
     client_max_perserver_tasks: int = 2
     client_max_perregion_tasks: int = 1
@@ -40,13 +44,15 @@ class HBaseApplication(AbstractApplication):
             params,
             topology_properties
         )
-        self.all_ips = [node.interface for node in cluster.nodesGenerator()]
+        # self.all_ips = [node.interface for node in cluster.nodesGenerator()]
+        self.all_ips = [node.id + "-LAN" for node in cluster.nodesGenerator()]
         self.cluster = cluster
         self.client_max_total_tasks = params.hbase_client_max_total_tasks
         self.client_max_perserver_tasks = params.hbase_client_max_perserver_tasks
         self.client_max_perregion_tasks = params.hbase_client_max_perregion_tasks
         self.hadoop_version = params.hbase_hadoop_version
-        self.hdfs_data_nodes = [topology_properties.db_nodes[node].interface for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_DATA))]
+        # self.hdfs_data_nodes = [topology_properties.db_nodes[node].interface for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_DATA))]
+        self.hdfs_data_nodes = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_DATA))
         master = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_MASTER), True)
         if (len(master) == 0):
             raise ValueError("No node has the HBASE_MASTER role assigned")
@@ -54,16 +60,19 @@ class HBaseApplication(AbstractApplication):
         name_node = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_NAME), True)
         if (len(name_node) == 0):
             raise ValueError("No node has the HDFS_NAME role assigned")
-        self.hdfs_name_node = topology_properties.db_nodes[name_node[0]].interface
+        # self.hdfs_name_node = topology_properties.db_nodes[name_node[0]].interface
+        self.hdfs_name_node = name_node[0]
         resource_manager = findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HDFS_RESOURCE_MANAGER), True)
         if (len(resource_manager) == 0):
             raise ValueError("No node has the HDFS_RESOURCE_MANAGER role assigned")
-        self.hdfs_resource_manager = topology_properties.db_nodes[resource_manager[0]].interface
+        # self.hdfs_resource_manager = topology_properties.db_nodes[resource_manager[0]].interface
+        self.hdfs_resource_manager = resource_manager[0]
 
     def writeHBaseSiteProperties(self, node: Node) -> None:
         zk_nodes = [
-            self.topology_properties.db_nodes[node].getInterfaceAddress()
-            for node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_ZOOKEEPER))
+            # self.topology_properties.db_nodes[node].getInterfaceAddress()
+            zk_node + "-LAN"
+            for zk_node in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_ZOOKEEPER))
         ]
         zk_ips_prop: str = ",".join([f"\"{iface}\"" for iface in zk_nodes])
         sed(
@@ -73,14 +82,19 @@ class HBaseApplication(AbstractApplication):
                 "@@CLIENT_MAX_TOTAL_TASKS@@": f"{self.client_max_total_tasks}",
                 "@@CLIENT_MAX_PER_SERVER_TASKS@@": f"{self.client_max_perserver_tasks}",
                 "@@CLIENT_MAX_PER_REGION_TASKS@@": f"{self.client_max_perregion_tasks}",
-                "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
+                # "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
+                "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node}-LAN"
             },
             f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
         )
 
     def writeRegionServersConfig(self, node: Node) -> None:
+        # region_servers = [
+        #     self.topology_properties.db_nodes[rs].getInterfaceAddress() 
+        #     for rs in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_REGION_SERVER))
+        # ]
         region_servers = [
-            self.topology_properties.db_nodes[rs].getInterfaceAddress() 
+            f"{rs}-LAN"
             for rs in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_REGION_SERVER))
         ]
         config = "\n".join(region_servers)
@@ -91,11 +105,15 @@ class HBaseApplication(AbstractApplication):
         )
 
     def writeBackupMastersConfig(self, node: Node) -> None:
+        # backup_masters = [
+        #     self.topology_properties.db_nodes[bm].getInterfaceAddress()
+        #     for bm in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_BACKUP_MASTER))
+        # ]
         backup_masters = [
-            self.topology_properties.db_nodes[bm].interface 
+            f"{bm}-LAN"
             for bm in findNodesWithRole(self.cluster.inverse_topology, str(HBaseNodeRole.HBASE_BACKUP_MASTER))
         ]
-        config = "\n".join([iface.addresses[0].address for iface in backup_masters])
+        config = "\n".join(backup_masters)
         catToFile(
             node,
             f"{LOCAL_PATH}/config/hbase/backup-masters",
@@ -109,7 +127,7 @@ class HBaseApplication(AbstractApplication):
         sed(
             node,
             {
-                "@@MASTER_HOSTNAME@@": node.getInterfaceAddress()
+                "@@MASTER_HOSTNAME@@": node.id + "-LAN" #node.getInterfaceAddress()
             },
             f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
         )
@@ -118,7 +136,7 @@ class HBaseApplication(AbstractApplication):
         sed(
             node,
             {
-                "@@REGIONSERVER_HOSTNAME@@": node.getInterfaceAddress()
+                "@@REGIONSERVER_HOSTNAME@@": node.id + "-LAN" #node.getInterfaceAddress()
             },
             f"{LOCAL_PATH}/config/hbase/hbase-site.xml"
         )
@@ -138,9 +156,9 @@ class HBaseApplication(AbstractApplication):
             node,
             {
                 "@@AUX_SERVICES@@": "mapreduce_shuffle",
-                "@@RESOURCE_MANAGER_HOSTNAME@@": self.hdfs_resource_manager.addresses[0].address,
-                "@@NODE_MANAGER_HOSTNAME@@": node.getInterfaceAddress(),
-                "@@YARN_TIMELINE_SERVICE_HOSTNAME@@": self.hdfs_resource_manager.addresses[0].address
+                "@@RESOURCE_MANAGER_HOSTNAME@@": self.hdfs_resource_manager + "-LAN", #self.hdfs_resource_manager.addresses[0].address,
+                "@@NODE_MANAGER_HOSTNAME@@": node.id + "-LAN", #node.getInterfaceAddress(),
+                "@@YARN_TIMELINE_SERVICE_HOSTNAME@@": self.hdfs_resource_manager + "-LAN" #self.hdfs_resource_manager.addresses[0].address
             },
             f"{HADOOP_CONF}/yarn-site.xml"
         )
@@ -153,22 +171,24 @@ class HBaseApplication(AbstractApplication):
             node,
             {
                 "@@DFS_REPLICATION@@": "1",
-                "@@DFS_NAMENODE_RPC_ADDRESS@@": self.hdfs_name_node.addresses[0].address,
-                "@@DFS_NAMENODE_SERVICE_RPC_ADDRESS@@": self.hdfs_name_node.addresses[0].address
+                "@@DFS_NAMENODE_RPC_ADDRESS@@": self.hdfs_name_node + "-LAN", #self.hdfs_name_node.addresses[0].address,
+                "@@DFS_NAMENODE_SERVICE_RPC_ADDRESS@@": self.hdfs_name_node + "-LAN" #self.hdfs_name_node.addresses[0].address
             },
             f"{HADOOP_CONF}/hdfs-site.xml"
         )
         sed(
             node,
             {
-                "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
+                # "@@HDFS_NAME_NODE@@": f"{self.hdfs_name_node.addresses[0].address}"
+                "@@HDFS_NAME_NODE@@": self.hdfs_name_node + "-LAN"
             },
             f"{HADOOP_CONF}/core-site.xml"
         )
         catToFile(
             node,
             f"{HADOOP_CONF}/workers",
-            "\n".join([f"{iface.addresses[0].address}" for iface in self.hdfs_data_nodes])
+            # "\n".join([f"{iface.addresses[0].address}" for iface in self.hdfs_data_nodes])
+            "\n".join([f"{curr_node}-LAN" for curr_node in self.hdfs_data_nodes])
         )
         self.writeHDFSYarnConfiguraton(node)
         self.writeHDFSMapReduceConfiguration(node)
@@ -207,7 +227,8 @@ class HBaseApplication(AbstractApplication):
         self.bootstrapNode(
             node,
             {
-                "NODE_ALL_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
+                # "NODE_IPS": [f"{iface.addresses[0].address}" for iface in self.all_ips],
+                "NODE_IPS": self.all_ips,
                 "INVOKE_INIT": True,
                 "NODE_ROLES": node.roles,
                 # "HBASE_NO_REDIRECT_LOG": True,

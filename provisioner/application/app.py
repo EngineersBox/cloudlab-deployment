@@ -151,8 +151,8 @@ class AbstractApplication(ABC):
                       properties: dict[str, Any],
                       process_regexes: list[str]) -> None:
         collector_address: str = ""
-        if self.topology_properties.collectorInterface != None:
-            collector_address = self.topology_properties.collectorInterface.addresses[0].address
+        if self.topology_properties.collector != None:
+            collector_address = self.topology_properties.collector.id + "-LAN"
         # Ensure the collector exports data for enabled features
         for feat in self.collector_features:
             properties[f"OTEL_{str(feat).upper()}_EXPORTER"] = "otlp"
@@ -161,7 +161,7 @@ class AbstractApplication(ABC):
         properties["INSTALL_PATH"] = LOCAL_PATH
         properties["APPLICATION_VARIANT"] = str(self.variant())
         properties["APPLICATION_VERSION"] = self.version
-        properties["NODE_IP"] = node.getInterfaceAddress()
+        properties["NODE_IP"] = node.id + "-LAN"
         properties["EBPF_NET_INTAKE_HOST"] = collector_address
         properties["EBPF_NET_INTAKE_PORT"] = 8000
         if (self.variant() != ApplicationVariant.OTEL_COLLECTOR):

@@ -6,5 +6,5 @@ from provisioner.structure.node import Node
 
 @dataclass
 class TopologyProperties:
-    collectorInterface: Optional[pg.Interface]
+    collector: Optional[Node]
     db_nodes: dict[str, Node] = field(default_factory=dict)

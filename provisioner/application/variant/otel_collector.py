@@ -98,9 +98,7 @@ class OTELCollector(AbstractApplication):
             self.ycsb_commit_like
         )
         self.writeTargetAppCollectionConfigs(node)
-        node_ips = []
-        for cluster_node in self.topology_properties.db_nodes.values():
-            node_ips.append(cluster_node.getInterfaceAddress())
+        node_ips = [f"{node}-LAN" for node in self.topology_properties.db_nodes.keys()]
         properties = {
             "INVOKE_INIT": True,
             "CLUSTER_APPLICATION_VARIANT": self.cluster_application,

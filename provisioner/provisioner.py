@@ -188,7 +188,7 @@ class Provisioner:
         for node in cluster.nodesGenerator():
             db_nodes[node.id] = node
         topology_properties: TopologyProperties = TopologyProperties(
-            collector.node.interface if collector != None else None,
+            collector.node if collector != None else None,
             db_nodes
         )
         self.bootstrapDB(cluster, topology_properties)
