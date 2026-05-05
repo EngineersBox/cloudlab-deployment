@@ -150,6 +150,8 @@ class HBaseApplication(AbstractApplication):
             self.writeHBaseMasterHostname(node)
         elif (role == HBaseNodeRole.HBASE_REGION_SERVER):
             self.writeHBaseRegionServerHostname(node)
+            blockstore = node.instance.Blockstore(f"{node.id}_bs", "/data")
+            blockstore.size = "200GB"
 
     def writeHDFSYarnConfiguraton(self, node: Node) -> None:
         sed(
