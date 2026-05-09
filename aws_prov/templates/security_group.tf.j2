@@ -1,0 +1,43 @@
+resource "aws_security_group" "tf_{{ application }}_sg" {
+    name = "terraform-cassandra-sg"
+    description = "Managed by Terraform - Allows internal connections to necessary cluster ports from security group"
+
+    egress {
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        from_port = -1
+        to_port = -1
+        protocol = "icmp"
+        self = true
+    }
+
+    ingress {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = [
+{% for ip in ssh_ingess_ips %}
+            "{{ ip }}/32",
+{% endfor%}
+        ]
+        self = true
+    }
+
+{% for port in cluster_ports %}
+    ingress {
+        from_port = {{ port.from }}
+        to_port = {{ port.to }}
+        protocol = "{{ port.protocol }}"
+        cidr_blocks = [
+{% for ip in port.cidr_blocks %}
+            "{{ ip }}",
+{% endfor%}
+        self = true
+    }
+{% endfor %}
+}

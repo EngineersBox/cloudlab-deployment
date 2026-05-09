@@ -1,0 +1,11 @@
+provider "aws" {
+  region = "us-west-2"
+}
+
+# load availability zones
+data "aws_availability_zones" "available" {}
+
+{{ nodes }}
+
+{{ networking }}
+
