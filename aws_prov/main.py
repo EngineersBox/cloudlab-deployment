@@ -107,15 +107,6 @@ class CloudinitConfigPart:
     content_type: str
     content: str
 
-def formatCloudinitConfig(app_variant: ApplicationVariant,
-                          node_name: str,
-                          parts: list[CloudinitConfigPart]) -> str:
-    return env.get_template("templates/cloudinit_config.tf.j2").render({
-        "application": app_variant,
-        "node_name": node_name,
-        "parts": parts
-    })
-
 def servicesToShellScript(services: ET.Element) -> str:
     script_lines = ["#!/bin/bash"]
     for service in services:
@@ -168,7 +159,7 @@ def provisionNode(node: ET.Element,
         "node_name": node_id,
         "application": app_variant,
         "node_dependecies": [],
-        "cloudinit_config_parts": formatCloudinitConfig(app_variant, node_id, parts)
+        "cloudinit_config_parts": parts
     })
 
 def provisionNetworking(node: ET.Element,
