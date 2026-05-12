@@ -1,5 +1,7 @@
 import xml.etree.ElementTree as ET
-import sys, logging, logging.config, coloredlogs, caseconverter, urllib.request
+import sys, os, logging, logging.config, coloredlogs, caseconverter, urllib.request
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse, unquote
 from dataclasses import dataclass
 from typing import Tuple
 from enum import Enum
@@ -99,16 +101,74 @@ class Port:
 APPLICATION_PORTS: dict[ApplicationVariant, list[Port]] = {
 }
 
+@dataclass
+class CloudinitConfigPart:
+    filename: str
+    content_type: str
+    content: str
+
+def formatCloudinitConfig(app_variant: ApplicationVariant,
+                          node_name: str,
+                          parts: list[CloudinitConfigPart]) -> str:
+    return env.get_template("templates/cloudinit_config.tf.j2").render({
+        "application": app_variant,
+        "node_name": node_name,
+        "parts": parts
+    })
+
+def servicesToShellScript(services: ET.Element) -> str:
+    script_lines = ["#!/bin/bash"]
+    for service in services:
+        if (service.tag == "install"):
+            install_path = service.attrib["install_path"]
+            script_lines.append(f"mkdir -p \"{install_path}\"")
+            url = service.attrib["url"]
+            script_lines.append(f"wget -P \"{install_path}\" \"{url}\"")            
+            unpack_cmd = "tar"
+            if (url.endswith(".tar.gz")):
+                unpack_cmd = "tar -xf"
+            elif (url.endswith(".zip")):
+                unpack_cmd = "unzip"
+            else:
+                LOGGER.error(f"Unknown unpack command for resource at URL: {url}")
+            url_parsed = urlparse(url)
+            filename = unquote(PurePosixPath(url_parsed.path).name)
+            script_lines.append(f"{unpack_cmd} \"{install_path}/{filename}\"")
+            script_lines.append(f"rm -f \"{install_path}/{filename}\"")
+        elif (service.tag == "command"):
+            shell = service.attrib["shell"]
+            command = service.attrib["command"]
+            script_lines.append(f"{shell} -c {command}")
+        else:
+            LOGGER.warning(f"Unknown service type '{service.tag}', skipping")
+    return "\n".join(script_lines)
 
 def provisionNode(node: ET.Element,
-                  app_variant: ApplicationVariant) -> str:
+                  app_variant: ApplicationVariant,
+                  node_ips: dict[str, str]) -> str:
     node_id = caseconverter.snakecase(node.attrib["client_id"])
-    cloudinit_config_parts = ""
+    services = node.find("./services")
+    if (services == None):
+        LOGGER.error("Expected <services></services> tags in node but found none")
+        exit(1)
+    parts: list[CloudinitConfigPart] = [
+        CloudinitConfigPart(
+            "/etc/boot_run.sh",
+            "text/x-shellscript",
+            servicesToShellScript(services)
+        ),
+        CloudinitConfigPart(
+            "cloud-config.yaml",
+            "text/cloud-config",
+            "runcmd:\n - [ \"/bin/bash\", \"/etc/boot_run.sh\" ]"
+        )
+    ]
     return env.get_template("templates/aws_node.tf.j2").render({
         "node_id": node_id,
+        "node_name": node_id,
         "application": app_variant,
         "node_dependecies": [],
-        "cloudinit_config_parts": ""
+        "cloudinit_config_parts": formatCloudinitConfig(app_variant, node_id, parts)
     })
 
 def provisionNetworking(node: ET.Element,
@@ -134,19 +194,23 @@ def main(profile_xml_path: str, app_variant: ApplicationVariant, output_dir: str
     root = tree.getroot()
     node_content: dict[str, str] = {}
     node_ips: dict[str, str] = {}
+    for child in root:
+        if (child.tag != "node"):
+            continue
+        node_id = child.attrib["client_id"]
+        ip_node = child.find("./interface[@client_id='{node_id}:eth0']/ip")
+        if (ip_node == None):
+            LOGGER.error(f"Failed to extract ip for node {node_id}")
+            exit(1)
+        ip_addr = ip_node.attrib["address"]
+        LOGGER.info(f"Extracted node ip: {ip_addr}")
+        node_ips[node_id] = ip_addr
     network_content: dict[str, str] = {}
     for child in root:
         if (child.tag == "node"):
             node_id = child.attrib["client_id"]
-            ip_node = child.find("./interface[@client_id='{node_id}:eth0']/ip")
-            if (ip_node == None):
-                LOGGER.error(f"Failed to extract ip for node {node_id}")
-                exit(1)
-            ip_addr = ip_node.attrib["address"]
-            LOGGER.info(f"Extracted node ip: {ip_addr}")
-            node_ips[node_id] = ip_addr
             LOGGER.info(f"Provisioning node {node_id}")
-            node_content[child.attrib["client_id"]] = provisionNode(child, app_variant)
+            node_content[child.attrib["client_id"]] = provisionNode(child, app_variant, node_ips)
         elif (child.tag == "link"):
             LOGGER.info("Provisioning network link")
             network_content["link"] = provisionNetworking(

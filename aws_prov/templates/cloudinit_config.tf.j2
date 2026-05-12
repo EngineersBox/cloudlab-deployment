@@ -1,0 +1,12 @@
+data "cloudinit_config" "{{ application }}_{{ node_name }}" {
+    gzip = false
+    base64_encode = false
+
+{% for part in parts %}
+    part {
+        filename = "{{ part.filename }}"
+        content_type = "{{ part.content_type }}"
+        content = {{ part.content }}
+    }
+{% endfor %}
+}
