@@ -17,3 +17,8 @@ variable "aws_region" {
   type = "string"
   default = "us_east_1"
 }
+
+variable "instance_type" {
+  type = "string"
+  default = "t3.small"
+}
