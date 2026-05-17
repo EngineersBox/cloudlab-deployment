@@ -4,8 +4,7 @@ resource "aws_instance" "tf_{{ application }}_{{ node_name }}" {
 	instance_type = "${var.instance_type}"
 
 	availability_zone = "${element(data.aws_availability_zones.available.names, 1)}"
-	#subnet_id	= "${element(data.aws_subnet_ids.private.ids, count.index)}"
-	vpc_security_group_ids = ["${aws_security_group.cluster_sg.id}"]
+	vpc_security_group_ids = ["${aws_security_group.tf{{ application }}.id}"]
 
 	key_name = "${var.private_key_name}"
 
@@ -20,24 +19,27 @@ resource "aws_instance" "tf_{{ application }}_{{ node_name }}" {
 
 	tags {
 		Name ="tf_{{ application }}_{{ node_name }}"
-        Application = "{{ application }}"
-        NodeID = "{{ node_id }}"
-		Description = "{{ application }} cluster deployed with terraform and AWS ${var.os}"
-		Owner =	"TestInfra"
-		Version ="1.0"
+		Application = "{{ application }}"
+		NodeID = "{{ node_id }}"
+		ClusterID = "{{ cluster_id }}"
 	}
-	depends_on = [{{ node_dependecies }}]
 }
 
 data "cloudinit_config" "tf_{{ application }}_{{ node_name }}" {
     gzip = false
     base64_encode = false
 
-{% for part in parts %}
+{% for part in cloudinit_config_parts %}
     part {
         filename = "{{ part.filename }}"
         content_type = "{{ part.content_type }}"
-        content = {{ part.content }}
+{%- if part.content != None %}
+        content = [<<-EOF
+{{ part.content }}
+EOF]
+{%- else %}
+        content = "${file("{{ part.content_file }}")}"
+{%- endif %}
     }
 {% endfor %}
 }

@@ -1,11 +1,13 @@
 provider "aws" {
-  region = "us-west-2"
+  region = var.aws_region
 }
 
-# load availability zones
 data "aws_availability_zones" "available" {}
 
-{{ nodes }}
+{% for node in nodes %}
+{{ node }}
+{% endfor %}
 
-{{ networking }}
-
+{% for network in networking %}
+{{ network }}
+{% endfor %}

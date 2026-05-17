@@ -135,12 +135,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "geni-lib" },
+    { name = "lxml" },
     { name = "six" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "geni-lib", specifier = ">=0.9.9.4" },
+    { name = "lxml", specifier = ">=6.0.2" },
     { name = "six", specifier = ">=1.17.0" },
 ]
 

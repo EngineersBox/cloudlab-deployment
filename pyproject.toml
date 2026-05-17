@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "geni-lib>=0.9.9.4",
+    "lxml>=6.0.2",
     "six>=1.17.0",
 ]
 
