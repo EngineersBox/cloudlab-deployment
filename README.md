@@ -22,7 +22,7 @@ Use the generated `profile.xml` file in a profile on CloudLab for provisioning.
 
 ## AWS Usage
 
-First, generate the CloudLab profile in the above steps.
+First, generate the CloudLab profile in the above steps, then [install the terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
 Then convert the profile to terraform code for AWS usage:
 

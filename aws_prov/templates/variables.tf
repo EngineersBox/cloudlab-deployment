@@ -24,6 +24,6 @@ variable "aws_region" {
 
 variable "instance_type" {
   type = "string"
-  # What AWS instance size should we use
+  # What AWS instance size should we use (i.e. i8g.4xlarge)
   default = "t3.small"
 }
